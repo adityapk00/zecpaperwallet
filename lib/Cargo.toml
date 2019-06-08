@@ -1,0 +1,23 @@
+[package]
+name = "zecpaperlib"
+version = "0.1.0"
+authors = ["ZecWallet"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+bech32 = "0.6"
+bellman = { git = "https://github.com/zcash/librustzcash" }
+ff = { git = "https://github.com/zcash/librustzcash"  }
+hex = "0.3"
+pairing = { git = "https://github.com/zcash/librustzcash" }
+protobuf = "2"
+rand = "0.4"
+rusqlite = { version = "0.15", features = ["bundled"], optional = true }
+sapling-crypto = {  git = "https://github.com/zcash/librustzcash" }
+time = { version = "0.1", optional = true }
+zcash_primitives = {  git = "https://github.com/zcash/librustzcash" }
+zcash_proofs = {  git = "https://github.com/zcash/librustzcash" }
+zip32 = {  git = "https://github.com/zcash/librustzcash" }
