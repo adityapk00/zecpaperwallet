@@ -1,0 +1,8 @@
+[package]
+name = "zecpaperwallet"
+version = "0.1.0"
+authors = ["ZecWallet"]
+edition = "2018"
+
+[dependencies]
+clap = "~2.33"
