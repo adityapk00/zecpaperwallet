@@ -1,3 +1,1 @@
-fn sayhello() {
-    println!("Hello, world!");
-}
+pub mod paper;

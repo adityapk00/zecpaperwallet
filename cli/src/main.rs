@@ -1,5 +1,9 @@
 extern crate clap; 
-use clap::{Arg, App, SubCommand};
+extern crate zecpaperlib;
+
+use clap::{Arg, App};
+use zecpaperlib::paper::get_address;
+use json::object;
 
 fn main() { 
     App::new("zecpaperwaller")
@@ -20,7 +24,14 @@ fn main() {
                 .short("o")
                 .long("output")
                 .index(1)
-                .required(true)
                 .help("Name of output file."))
-       .get_matches(); 
+       .get_matches();
+
+    let (addr, pk) = get_address();
+    let ans = object!{
+        "address"       => addr,
+        "private_key"   => pk
+    }; 
+
+    println!("{}", json::stringify_pretty(ans, 2));
 }

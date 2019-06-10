@@ -4,9 +4,6 @@ version = "0.1.0"
 authors = ["ZecWallet"]
 edition = "2018"
 
-[lib]
-crate-type = ["cdylib"]
-
 [dependencies]
 bech32 = "0.6"
 bellman = { git = "https://github.com/zcash/librustzcash" }
