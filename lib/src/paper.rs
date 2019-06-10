@@ -2,18 +2,37 @@
 use zip32::{ChildIndex, ExtendedSpendingKey};
 use bech32::{Bech32, u5, ToBase32};
 use rand::{OsRng, Rng};
+use json::{array, object};
 
-pub fn get_address(testnet: bool) -> (String, String) {
-
-    let addr_prefix = if testnet {"ztestsapling"} else {"zs"};
-    let pk_prefix   = if testnet {"secret-extended-key-test"} else {"secret-extended-key-main"};
-    
+pub fn gen_addresses_as_json(testnet: bool, count: i32) -> String {
     let mut rng = OsRng::new().expect("Error opening random number generator");
     let mut seed:[u8; 32] = [0; 32]; 
     rng.fill_bytes(&mut seed);
 
+    return gen_addresses_with_seed_as_json(testnet, count, &seed);
+}
+
+pub fn gen_addresses_with_seed_as_json(testnet: bool, count: i32, seed: &[u8; 32]) -> String {
+    let mut ans = array![];
+
+    for i in 0..count {
+        let (addr, pk) = get_address(testnet, &seed);
+        ans.push(object!{
+                "num"           => i,
+                "address"       => addr,
+                "private_key"   => pk
+        }).unwrap(); 
+    }      
+
+    return json::stringify_pretty(ans, 2);
+}
+
+fn get_address(testnet: bool, seed: &[u8; 32]) -> (String, String) {
+    let addr_prefix = if testnet {"ztestsapling"} else {"zs"};
+    let pk_prefix   = if testnet {"secret-extended-key-test"} else {"secret-extended-key-main"};
+    
     let spk: ExtendedSpendingKey = ExtendedSpendingKey::from_path(
-            &ExtendedSpendingKey::master(&seed),
+            &ExtendedSpendingKey::master(seed),
             &[
                 ChildIndex::Hardened(32),
                 ChildIndex::Hardened(44),

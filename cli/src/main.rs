@@ -2,8 +2,7 @@ extern crate clap;
 extern crate zecpaperlib;
 
 use clap::{Arg, App};
-use zecpaperlib::paper::get_address;
-use json::{array, object};
+use zecpaperlib::paper::*;
 
 fn main() { 
     let matches = App::new("zecpaperwaller")
@@ -12,14 +11,15 @@ fn main() {
        .arg(Arg::with_name("testnet")
                 .short("t")
                 .long("testnet")
-                .help("Generate Testnet addresses."))
+                .help("Generate Testnet addresses"))
         .arg(Arg::with_name("format")
                 .short("f")
                 .long("format")
-                .help("What format to generate the output in.")
+                .help("What format to generate the output in")
                 .takes_value(true)
                 .value_name("FORMAT")
-                .possible_values(&["png", "pdf", "txt"]))
+                .possible_values(&["png", "pdf", "json"])
+                .default_value("json"))
         .arg(Arg::with_name("output")
                 .short("o")
                 .long("output")
@@ -37,18 +37,13 @@ fn main() {
                 }))
        .get_matches();  
 
+    let testnet: bool = matches.is_present("testnet");
+    if !testnet {
+        eprint!("Mainnet addresses are not supported yet. Please re-run with --testnet");
+        return;
+    }
+
     let num_addresses = matches.value_of("num_addresses").unwrap().parse::<i32>().unwrap();
-    let mut ans = array![];
-
-    for count in 0..num_addresses {
-        let (addr, pk) = get_address(true);
-        ans.push(object!{
-                "num"           => count,
-                "address"       => addr,
-                "private_key"   => pk
-        }).unwrap(); 
-    }      
-
     
-    println!("{}", json::stringify_pretty(ans, 2)); 
+    println!("{}", gen_addresses_as_json(testnet, num_addresses));
 }
