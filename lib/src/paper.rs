@@ -3,7 +3,10 @@ use zip32::{ChildIndex, ExtendedSpendingKey};
 use bech32::{Bech32, u5, ToBase32};
 use rand::{OsRng, Rng};
 
-pub fn get_address() -> (String, String) {
+pub fn get_address(testnet: bool) -> (String, String) {
+
+    let addr_prefix = if testnet {"ztestsapling"} else {"zs"};
+    let pk_prefix   = if testnet {"secret-extended-key-test"} else {"secret-extended-key-main"};
     
     let mut rng = OsRng::new().expect("Error opening random number generator");
     let mut seed:[u8; 32] = [0; 32]; 
@@ -29,7 +32,7 @@ pub fn get_address() -> (String, String) {
 
 
     let checked_data: Vec<u5> = v.to_base32();
-    let encoded = Bech32::new("zs".into(), checked_data).expect("bech32 failed").to_string();
+    let encoded = Bech32::new(addr_prefix.into(), checked_data).expect("bech32 failed").to_string();
     //println!("{}", encoded);
 
     // Private Key
@@ -38,7 +41,7 @@ pub fn get_address() -> (String, String) {
     //println!("Len {:?}", vp.len());
     
     let c_d: Vec<u5> = vp.to_base32();
-    let encoded_pk = Bech32::new("secret-extended-key-main".into(), c_d).expect("bech32 failed").to_string();
+    let encoded_pk = Bech32::new(pk_prefix.into(), c_d).expect("bech32 failed").to_string();
     //println!("{}", encoded_pk);
     
 

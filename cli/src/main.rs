@@ -1,12 +1,12 @@
-extern crate clap; 
+extern crate clap;
 extern crate zecpaperlib;
 
 use clap::{Arg, App};
 use zecpaperlib::paper::get_address;
-use json::object;
+use json::{array, object};
 
 fn main() { 
-    App::new("zecpaperwaller")
+    let matches = App::new("zecpaperwaller")
        .version("1.0")
        .about("A command line Zcash Sapling paper wallet generator")
        .arg(Arg::with_name("testnet")
@@ -25,13 +25,30 @@ fn main() {
                 .long("output")
                 .index(1)
                 .help("Name of output file."))
-       .get_matches();
+        .arg(Arg::with_name("num_addresses")
+                .short("n")
+                .long("num_addresses")
+                .help("Number of addresses to generate")
+                .takes_value(true)
+                .default_value("1")                
+                .validator(|i:String| match i.parse::<i32>() {
+                        Ok(_)   => return Ok(()),
+                        Err(_)  => return Err(format!("Number of addresses '{}' is not a number", i))
+                }))
+       .get_matches();  
 
-    let (addr, pk) = get_address();
-    let ans = object!{
-        "address"       => addr,
-        "private_key"   => pk
-    }; 
+    let num_addresses = matches.value_of("num_addresses").unwrap().parse::<i32>().unwrap();
+    let mut ans = array![];
 
-    println!("{}", json::stringify_pretty(ans, 2));
+    for count in 0..num_addresses {
+        let (addr, pk) = get_address(true);
+        ans.push(object!{
+                "num"           => count,
+                "address"       => addr,
+                "private_key"   => pk
+        }).unwrap(); 
+    }      
+
+    
+    println!("{}", json::stringify_pretty(ans, 2)); 
 }
