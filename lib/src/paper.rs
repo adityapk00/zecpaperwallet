@@ -7,12 +7,25 @@ use json::{array, object};
 /**
  * Generate a series of `count` addresses and private keys. 
  */
-pub fn generate_wallet(testnet: bool, count: u32) -> String {
-    let mut rng = ChaChaRng::from_entropy();
-    let mut seed:[u8; 32] = [0; 32]; 
-    rng.fill(&mut seed);
+pub fn generate_wallet(testnet: bool, nohd: bool, count: u32) -> String {    
+    if !nohd {
+        // Allow HD addresses, so use only 1 seed
+        let mut rng = ChaChaRng::from_entropy();
+        let mut seed:[u8; 32] = [0; 32]; 
+        rng.fill(&mut seed);
+        
+        return gen_addresses_with_seed_as_json(testnet, count, |i| (seed.to_vec(), i));
+    } else {
+        // Not using HD addresses, so derive a new seed every time
 
-    return gen_addresses_with_seed_as_json(testnet, count, &seed);
+        return gen_addresses_with_seed_as_json(testnet, count, |_| {
+            let mut rng = ChaChaRng::from_entropy();
+            let mut seed:[u8; 32] = [0; 32]; 
+            rng.fill(&mut seed);
+            
+            return (seed.to_vec(), 0);
+        });
+    }    
 }
 
 /**
@@ -20,12 +33,20 @@ pub fn generate_wallet(testnet: bool, count: u32) -> String {
  * index is 0..count
  * 
  * Note that cointype is 1 for testnet and 133 for mainnet
+ * 
+ * get_seed is a closure that will take the address number being derived, and return a tuple cointaining the 
+ * seed and child number to use to derive this wallet. 
+ *
+ * It is useful if we want to reuse (or not) the seed across multiple wallets.
  */
-fn gen_addresses_with_seed_as_json(testnet: bool, count: u32, seed: &[u8]) -> String {
+fn gen_addresses_with_seed_as_json<F>(testnet: bool, count: u32, get_seed: F) -> String 
+    where F: Fn(u32) -> (Vec<u8>, u32)
+{
     let mut ans = array![];
 
     for i in 0..count {
-        let (addr, pk, path) = get_address(testnet, &seed, i);
+        let (seed, child) = get_seed(i);
+        let (addr, pk, path) = get_address(testnet, &seed, child);
         ans.push(object!{
                 "num"           => i,
                 "address"       => addr,
@@ -92,7 +113,7 @@ mod tests {
         use std::collections::HashSet;
         
         // Testnet wallet
-        let w = generate_wallet(true, 1);
+        let w = generate_wallet(true, false, 1);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 1);
         assert!(j[0]["address"].as_str().unwrap().starts_with("ztestsapling"));
@@ -101,7 +122,7 @@ mod tests {
 
 
         // Mainnet wallet
-        let w = generate_wallet(false, 1);
+        let w = generate_wallet(false, false, 1);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 1);
         assert!(j[0]["address"].as_str().unwrap().starts_with("zs"));
@@ -109,19 +130,57 @@ mod tests {
         assert_eq!(j[0]["seed"]["path"].as_str().unwrap(), "m/32'/133'/0'");
 
         // Check if all the addresses are the same
-        let w = generate_wallet(true, 3);
+        let w = generate_wallet(true, false, 3);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 3);
-        let mut s = HashSet::new();
+
+        let mut set1 = HashSet::new();
+        let mut set2 = HashSet::new();
         for i in 0..3 {
             assert!(j[i]["address"].as_str().unwrap().starts_with("ztestsapling"));
             assert_eq!(j[i]["seed"]["path"].as_str().unwrap(), format!("m/32'/1'/{}'", i).as_str());
 
-            s.insert(j[i]["address"].as_str().unwrap());
-            s.insert(j[i]["private_key"].as_str().unwrap());
+            set1.insert(j[i]["address"].as_str().unwrap());
+            set1.insert(j[i]["private_key"].as_str().unwrap());
+
+            set2.insert(j[i]["seed"]["HDSeed"].as_str().unwrap());
         }
+
         // There should be 3 + 3 distinct addresses and private keys
-        assert_eq!(s.len(), 6);
+        assert_eq!(set1.len(), 6);
+        // ...but only 1 seed
+        assert_eq!(set2.len(), 1);
+    }
+
+    /**
+     * Test nohd address generation, which does not use the same sed.
+     */
+    #[test]
+    fn test_nohd() {
+        use crate::paper::generate_wallet;
+        use std::collections::HashSet;
+        
+        // Check if all the addresses use a different seed
+        let w = generate_wallet(true, true, 3);
+        let j = json::parse(&w).unwrap();
+        assert_eq!(j.len(), 3);
+
+        let mut set1 = HashSet::new();
+        let mut set2 = HashSet::new();
+        for i in 0..3 {
+            assert!(j[i]["address"].as_str().unwrap().starts_with("ztestsapling"));
+            assert_eq!(j[i]["seed"]["path"].as_str().unwrap(), "m/32'/1'/0'");      // All of them should use the same path
+
+            set1.insert(j[i]["address"].as_str().unwrap());
+            set1.insert(j[i]["private_key"].as_str().unwrap());
+
+            set2.insert(j[i]["seed"]["HDSeed"].as_str().unwrap());
+        }
+
+        // There should be 3 + 3 distinct addresses and private keys
+        assert_eq!(set1.len(), 6);
+        // ...and 3 different seeds
+        assert_eq!(set2.len(), 3);
     }
 
     // Test the address derivation against the test data (see below)
@@ -133,7 +192,7 @@ mod tests {
             let seed = hex::decode(i["seed"].as_str().unwrap()).unwrap();
             let num  = i["num"].as_u32().unwrap();
 
-            let addresses = gen_addresses_with_seed_as_json(testnet, num+1, &seed[..]);
+            let addresses = gen_addresses_with_seed_as_json(testnet, num+1, |child| (seed.clone(), child));
 
             let j = json::parse(&addresses).unwrap();
             assert_eq!(j[num as usize]["address"], i["addr"]);

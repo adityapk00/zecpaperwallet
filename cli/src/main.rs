@@ -23,6 +23,10 @@ fn main() {
                 .value_name("FORMAT")
                 .possible_values(&["pdf", "json"])
                 .default_value("json"))
+        .arg(Arg::with_name("nohd")
+                .short("n")
+                .long("nohd")
+                .help("Don't reuse HD keys. Normally, zecpaperwallet will use the same HD key to derive multiple addresses. This flag will use a new seed for each address"))
         .arg(Arg::with_name("output")
                 .short("o")
                 .long("output")
@@ -42,6 +46,8 @@ fn main() {
 
     let testnet: bool = matches.is_present("testnet");
     
+    let nohd: bool    = matches.is_present("nohd");
+
     let filename = matches.value_of("output");
     let format   = matches.value_of("format").unwrap();
 
@@ -55,7 +61,7 @@ fn main() {
 
     print!("Generating {} Sapling addresses.........", num_addresses);
     io::stdout().flush().ok();
-    let addresses = generate_wallet(testnet, num_addresses); 
+    let addresses = generate_wallet(testnet, nohd, num_addresses); 
     println!("[OK]");
     
     // If the default format is present, write to the console if the filename is absent
