@@ -11,7 +11,7 @@ ff = { git = "https://github.com/zcash/librustzcash"  }
 hex = "0.3"
 pairing = { git = "https://github.com/zcash/librustzcash" }
 protobuf = "2"
-rand = "0.4"
+rand = "0.5"
 rusqlite = { version = "0.15", features = ["bundled"], optional = true }
 sapling-crypto = {  git = "https://github.com/zcash/librustzcash" }
 time = { version = "0.1", optional = true }
@@ -19,3 +19,5 @@ zcash_primitives = {  git = "https://github.com/zcash/librustzcash" }
 zcash_proofs = {  git = "https://github.com/zcash/librustzcash" }
 zip32 = {  git = "https://github.com/zcash/librustzcash" }
 json = "0.11.14"    
+qrcode = { version = "0.8", default-features = false }
+printpdf = "0.2.8"

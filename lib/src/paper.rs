@@ -1,18 +1,21 @@
 
 use zip32::{ChildIndex, ExtendedSpendingKey};
 use bech32::{Bech32, u5, ToBase32};
-use rand::{OsRng, Rng};
+use rand::{Rng, ChaChaRng, FromEntropy};
 use json::{array, object};
 
-pub fn gen_addresses_as_json(testnet: bool, count: i32) -> String {
-    let mut rng = OsRng::new().expect("Error opening random number generator");
+/**
+ * Generate a series of `count` addresses and private keys. 
+ */
+pub fn generate_wallet(testnet: bool, count: u32) -> String {
+    let mut rng = ChaChaRng::from_entropy();
     let mut seed:[u8; 32] = [0; 32]; 
-    rng.fill_bytes(&mut seed);
+    rng.fill(&mut seed);
 
     return gen_addresses_with_seed_as_json(testnet, count, &seed);
 }
 
-pub fn gen_addresses_with_seed_as_json(testnet: bool, count: i32, seed: &[u8; 32]) -> String {
+fn gen_addresses_with_seed_as_json(testnet: bool, count: u32, seed: &[u8; 32]) -> String {
     let mut ans = array![];
 
     for i in 0..count {
