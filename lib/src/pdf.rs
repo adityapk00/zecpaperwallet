@@ -41,16 +41,19 @@ pub fn save_to_pdf(addresses: &str, filename: &str) {
         current_layer.add_shape(line1);
     };
     
-    doc.save(&mut BufWriter::new(File::create("test_working.pdf").unwrap())).unwrap();
+    doc.save(&mut BufWriter::new(File::create(filename).unwrap())).unwrap();
 }
 
+/**
+ * Generate a qrcode. The outout is a vector of RGB values of size (qrcode_modules * scalefactor) + padding
+ */
 fn qrcode_scaled(data: &str, scalefactor: usize) -> (Vec<u8>, usize) {
     let code = QrCode::new(data.as_bytes()).unwrap();
     let output_size = code.width();
-    println!("Total QR Code Modules: {}", output_size);
 
     let imgdata = code.to_colors();
 
+    // Add padding around the QR code, otherwise some scanners can't seem to read it. 
     let padding     = 10;
     let scaledsize  = output_size * scalefactor;
     let finalsize   = scaledsize + (2 * padding);
@@ -69,8 +72,9 @@ fn qrcode_scaled(data: &str, scalefactor: usize) -> (Vec<u8>, usize) {
     return (scaledimg, finalsize);
 }
 
-
-
+/**
+ * Add the address section to the PDF at `pos`. Note that each page can fit only 2 wallets, so pos has to effectively be either 0 or 1.
+ */
 fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef,address: &str, pos: u32) {
     let (scaledimg, finalsize) = qrcode_scaled(address, 10);
 
@@ -78,12 +82,15 @@ fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef
     add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(10.0), Mm(ypos));
 
     current_layer.use_text("Address", 14, Mm(55.0), Mm(ypos+27.5), &font_bold);
-    let strs = split_to_max(&address, 44);
+    let strs = split_to_max(&address, 44, 8);
     for i in 0..strs.len() {
         current_layer.use_text(strs[i].clone(), 12, Mm(55.0), Mm(ypos+15.0-((i*5) as f64)), &font);
     }
 }
 
+/**
+ * Add the private key section to the PDF at `pos`, which can effectively be only 0 or 1.
+ */
 fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, pk: &str, pos: u32) {
     let (scaledimg, finalsize) = qrcode_scaled(pk, 10);
 
@@ -91,12 +98,15 @@ fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, fon
     add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(145.0), Mm(ypos-17.5));
 
     current_layer.use_text("Private Key", 14, Mm(10.0), Mm(ypos+27.5), &font_bold);
-    let strs = split_to_max(&pk, 51);
+    let strs = split_to_max(&pk, 45, 10);
     for i in 0..strs.len() {
         current_layer.use_text(strs[i].clone(), 12, Mm(10.0), Mm(ypos+15.0-((i*5) as f64)), &font);
     }
 }
 
+/**
+ * Insert the given QRCode into the PDF at the given x,y co-ordinates. The qr code is a vector of RGB values. 
+ */
 fn add_qrcode_image_to_page(current_layer: &PdfLayerReference, qr: Vec<u8>, qrsize: usize, x: Mm, y: Mm) {
     // you can also construct images manually from your data:
     let image_file_2 = ImageXObject {
@@ -117,15 +127,37 @@ fn add_qrcode_image_to_page(current_layer: &PdfLayerReference, qr: Vec<u8>, qrsi
     image2.add_to_layer(current_layer.clone(), Some(x), Some(y), None, None, None, None);
 }
 
-
-fn split_to_max(s: &str, max: usize) -> Vec<String> {
+/**
+ * Split a string into multiple lines, each with a `max` length and add spaces in each line at `blocksize` intervals
+ */
+fn split_to_max(s: &str, max: usize, blocksize: usize) -> Vec<String> {
     let mut ans: Vec<String> = Vec::new();
 
+    // Split into lines. 
     for i in 0..((s.len() / max)+1) {
         let start = i * max;
         let end   = if start + max > s.len() { s.len() } else { start + max };
-        ans.push(s[start..end].to_string());
+
+        let line = &s[start..end];
+
+        // Now, add whitespace into the individual lines to better readability.
+        let mut spaced_line = String::default();
+        for j in 0..((line.len() / blocksize)+1) {
+            let start = j * blocksize;
+            let end   = if start + blocksize > line.len() {line.len()} else {start + blocksize};
+
+            spaced_line.push_str(" ");
+            spaced_line.push_str(&line[start..end]);
+        }
+
+        // If there was nothing to split in the blocks, just add the whole line
+        if spaced_line.is_empty() {
+            spaced_line = line.to_string();
+        }
+
+        ans.push(spaced_line.trim().to_string());
     }
 
+    // Add spaces
     return ans;
 }
