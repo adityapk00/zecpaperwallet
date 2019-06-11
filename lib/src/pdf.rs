@@ -225,7 +225,7 @@ mod tests {
 
         // Test random combinations of block size and spaces to ensure that 
         // the string is always preserved
-        for m in 2..100 {
+        for m in 1..100 {
             for b in 1..40 {
                 assert_eq!(split_to_max(addr, m, b).join(" ").replace(" ", ""), addr);
                 assert_eq!(split_to_max(pk, m, b).join(" ").replace(" ", ""), pk);
