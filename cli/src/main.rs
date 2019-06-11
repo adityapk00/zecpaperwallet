@@ -26,10 +26,10 @@ fn main() {
                 .long("output")
                 .index(1)
                 .help("Name of output file."))
-        .arg(Arg::with_name("num_addresses")
-                .short("n")
-                .long("num_addresses")
-                .help("Number of addresses to generate")
+        .arg(Arg::with_name("z_addresses")
+                .short("z")
+                .long("z_addresses")
+                .help("Number of Z addresses (sapling) to generate")
                 .takes_value(true)
                 .default_value("1")                
                 .validator(|i:String| match i.parse::<i32>() {
@@ -44,7 +44,7 @@ fn main() {
         return;
     }
 
-    let num_addresses = matches.value_of("num_addresses").unwrap().parse::<u32>().unwrap();
+    let num_addresses = matches.value_of("z_addresses").unwrap().parse::<u32>().unwrap();
     let addresses = generate_wallet(testnet, num_addresses); 
     println!("{}", addresses);
     pdf::save_to_pdf(&addresses, "test_working.pdf");

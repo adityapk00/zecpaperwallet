@@ -19,18 +19,19 @@ fn gen_addresses_with_seed_as_json(testnet: bool, count: u32, seed: &[u8; 32]) -
     let mut ans = array![];
 
     for i in 0..count {
-        let (addr, pk) = get_address(testnet, &seed);
+        let (addr, pk) = get_address(testnet, &seed, i);
         ans.push(object!{
                 "num"           => i,
                 "address"       => addr,
-                "private_key"   => pk
+                "private_key"   => pk,
+                "seed"          => format!("HDSeed: {}, Path: 32'/44'/0'/{}", hex::encode(seed), i)
         }).unwrap(); 
     }      
 
     return json::stringify_pretty(ans, 2);
 }
 
-fn get_address(testnet: bool, seed: &[u8; 32]) -> (String, String) {
+fn get_address(testnet: bool, seed: &[u8; 32], index: u32) -> (String, String) {
     let addr_prefix = if testnet {"ztestsapling"} else {"zs"};
     let pk_prefix   = if testnet {"secret-extended-key-test"} else {"secret-extended-key-main"};
     
@@ -40,6 +41,7 @@ fn get_address(testnet: bool, seed: &[u8; 32]) -> (String, String) {
                 ChildIndex::Hardened(32),
                 ChildIndex::Hardened(44),
                 ChildIndex::Hardened(0),
+                ChildIndex::from_index(index)
             ],
         );
 

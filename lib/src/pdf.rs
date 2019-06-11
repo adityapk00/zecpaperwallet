@@ -5,6 +5,7 @@ use qrcode::types::Color;
 
 use std::io::BufWriter;
 use std::convert::From;
+use std::f64;
 use std::fs::File;
 use printpdf::*;
 
@@ -13,15 +14,34 @@ use printpdf::*;
  */
 pub fn save_to_pdf(addresses: &str, filename: &str) {
     let (doc, page1, layer1) = PdfDocument::new("Zec Sapling Paper Wallet", Mm(210.0), Mm(297.0), "Layer 1");
-    let current_layer = doc.get_page(page1).get_layer(layer1);
+
     let font  = doc.add_builtin_font(BuiltinFont::Courier).unwrap();
     let font_bold = doc.add_builtin_font(BuiltinFont::CourierBold).unwrap();
 
     let keys = json::parse(&addresses).unwrap();
-    for kv in keys.members() {
-        add_address_to_page(&current_layer, &font, &font_bold, kv["address"].as_str().unwrap(), 0);
 
-        add_pk_to_page(&current_layer, &font, &font_bold, kv["private_key"].as_str().unwrap(), 1);
+    // Position on the PDF page.
+    let mut pos = 0;
+
+    let mut current_layer = doc.get_page(page1).get_layer(layer1);
+    
+    let total_pages      = f64::ceil(keys.len() as f64 / 2.0);   // 2 per page
+    let mut current_page = 1; 
+
+    for kv in keys.members() {
+        // Add next page when moving to the next position.
+        if pos >= 2 {
+            pos = 0;
+            current_page = current_page + 1;
+
+            // Add a page
+            let (page2, _) = doc.add_page(Mm(210.0), Mm(297.0),"Page 2, Layer 1");
+            current_layer = doc.get_page(page2).add_layer("Layer 3");
+        }
+
+        // Add address + private key
+        add_address_to_page(&current_layer, &font, &font_bold, kv["address"].as_str().unwrap(), pos);
+        add_pk_to_page(&current_layer, &font, &font_bold, kv["private_key"].as_str().unwrap(), kv["seed"].as_str().unwrap(), pos);
 
         // Is the shape stroked? Is the shape closed? Is the shape filled?
         let line1 = Line {
@@ -39,6 +59,15 @@ pub fn save_to_pdf(addresses: &str, filename: &str) {
 
         // Draw first line
         current_layer.add_shape(line1);
+
+        // Add footer of page, only once for each pair of addresses
+        if pos == 0 {
+            add_footer_to_page(&current_layer, &font, &format!("Page {} of {}", current_page, total_pages));
+        }
+
+        // Add to the position to move to the next set, but remember to add a new page every 2 wallets
+        // We'll add a new page at the start of the loop, so we add it to the PDF only if required.
+        pos = pos + 1;        
     };
     
     doc.save(&mut BufWriter::new(File::create(filename).unwrap())).unwrap();
@@ -73,12 +102,21 @@ fn qrcode_scaled(data: &str, scalefactor: usize) -> (Vec<u8>, usize) {
 }
 
 /**
+ * Add a footer at the bottom of the page
+ */
+fn add_footer_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, footer: &str) {
+    current_layer.use_text(footer, 10, Mm(5.0), Mm(5.0), &font);
+}
+
+
+/**
  * Add the address section to the PDF at `pos`. Note that each page can fit only 2 wallets, so pos has to effectively be either 0 or 1.
  */
-fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef,address: &str, pos: u32) {
+fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, address: &str, pos: u32) {
     let (scaledimg, finalsize) = qrcode_scaled(address, 10);
 
-    let ypos = 297.0 - 5.0 - (50.0 * ((pos+1) as f64));
+    //         page_height  top_margin  vertical_padding  position       
+    let ypos = 297.0        - 5.0       - 50.0            - (140.0 * pos as f64);
     add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(10.0), Mm(ypos));
 
     current_layer.use_text("Address", 14, Mm(55.0), Mm(ypos+27.5), &font_bold);
@@ -91,10 +129,11 @@ fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef
 /**
  * Add the private key section to the PDF at `pos`, which can effectively be only 0 or 1.
  */
-fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, pk: &str, pos: u32) {
+fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, pk: &str, seed: &str, pos: u32) {
     let (scaledimg, finalsize) = qrcode_scaled(pk, 10);
 
-    let ypos = 297.0 - 5.0 - (50.0 * ((pos+1) as f64));
+    //         page_height  top_margin  vertical_padding  position       
+    let ypos = 297.0        - 5.0       - 100.0           - (140.0 * pos as f64);    
     add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(145.0), Mm(ypos-17.5));
 
     current_layer.use_text("Private Key", 14, Mm(10.0), Mm(ypos+27.5), &font_bold);
@@ -102,6 +141,9 @@ fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, fon
     for i in 0..strs.len() {
         current_layer.use_text(strs[i].clone(), 12, Mm(10.0), Mm(ypos+15.0-((i*5) as f64)), &font);
     }
+
+    // And add the seed too. 
+    current_layer.use_text(seed, 8, Mm(10.0), Mm(ypos-25.0), &font);
 }
 
 /**
