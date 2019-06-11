@@ -203,3 +203,33 @@ fn split_to_max(s: &str, max: usize, blocksize: usize) -> Vec<String> {
     // Add spaces
     return ans;
 }
+
+#[cfg(test)]
+mod tests {
+    
+    #[test]
+    fn test_split() {
+        use crate::pdf::split_to_max;
+        assert_eq!(split_to_max("a", 1, 1).join("\n"), "a\n");
+
+        // Test the address splitting using max/blocksize we'll know we use
+        let addr = "ztestsapling1w00pdjthkzmzgut4c3y7hu6q6c8ferjczyvc03xwu0rvdgtre8a25em5w3w6jxghvcar5jzehnn";
+        assert_eq!(split_to_max(addr, 44, 8).join("\n"), "ztestsap ling1w00 pdjthkzm zgut4c3y 7hu6q6c8 ferj\nczyvc03x wu0rvdgt re8a25em 5w3w6jxg hvcar5jz ehnn\n");
+        assert_eq!(split_to_max(addr, 44, 8).join(" ").replace(" ", ""), addr);
+        assert_eq!(split_to_max(addr, 42, 8).join(" ").replace(" ", ""), addr);
+
+        // Test the PK splitting using max/blocksize we'll know we use
+        let pk = "secret-extended-key-test1qj7vst8eqqqqqqpu2w6r0p2ykewm95h3d28k7r7y87e9p4v5zhzd4hj2y57clsprjveg997vqk7ak9tr2pnyyxmfzyzs6dhtuflt3aea9srp08teskpqfy2dtm07n08z3dyra407xumf3fk9ds4x06rzur7mgfyu39krj2g28lsxsxtv7swzu0j9vw4qf8rn5z72ztgeqj6u5zehylqm75c7d3um9ds9zvek4tdyta7qhln5fkc0dks6qwmkvr48fvgucpc3542kmdc97uqzt";
+        assert_eq!(split_to_max(pk, 44, 8).join(" ").replace(" ", ""),  pk);
+        assert_eq!(split_to_max(pk, 45, 10).join(" ").replace(" ", ""), pk);
+
+        // Test random combinations of block size and spaces to ensure that 
+        // the string is always preserved
+        for m in 2..100 {
+            for b in 1..40 {
+                assert_eq!(split_to_max(addr, m, b).join(" ").replace(" ", ""), addr);
+                assert_eq!(split_to_max(pk, m, b).join(" ").replace(" ", ""), pk);
+            }
+        }
+    }
+}
