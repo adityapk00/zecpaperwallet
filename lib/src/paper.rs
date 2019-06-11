@@ -15,6 +15,12 @@ pub fn generate_wallet(testnet: bool, count: u32) -> String {
     return gen_addresses_with_seed_as_json(testnet, count, &seed);
 }
 
+/**
+ * Generate `count` addresses with the given seed. The addresses are derived from m/32'/cointype'/index' where 
+ * index is 0..count
+ * 
+ * Note that cointype is 1 for testnet and 133 for mainnet
+ */
 fn gen_addresses_with_seed_as_json(testnet: bool, count: u32, seed: &[u8]) -> String {
     let mut ans = array![];
 
@@ -32,7 +38,7 @@ fn gen_addresses_with_seed_as_json(testnet: bool, count: u32, seed: &[u8]) -> St
 }
 
 // Generate a standard ZIP-32 address from the given seed at 32'/44'/0'/index
-fn get_address(testnet: bool, seed: &[u8], index: u32) -> (String, String, String) {
+fn get_address(testnet: bool, seed: &[u8], index: u32) -> (String, String, json::JsonValue) {
     let addr_prefix = if testnet {"ztestsapling"} else {"zs"};
     let pk_prefix   = if testnet {"secret-extended-key-test"} else {"secret-extended-key-main"};
     let cointype    = if testnet {1} else {133};
@@ -45,7 +51,10 @@ fn get_address(testnet: bool, seed: &[u8], index: u32) -> (String, String, Strin
                 ChildIndex::Hardened(index)
             ],
         );
-    let path = format!("HDSeed: {}, Path: m/32'/{}'/{}'", hex::encode(seed), cointype, index);
+    let path = object!{
+        "HDSeed"    => hex::encode(seed),
+        "path"      => format!("m/32'/{}'/{}'", cointype, index)
+    };
 
     let (_d, addr) = spk.default_address().expect("Cannot get result");
 
@@ -66,9 +75,17 @@ fn get_address(testnet: bool, seed: &[u8], index: u32) -> (String, String, Strin
 }
 
 
+
+
+
+
+// Tests
 #[cfg(test)]
 mod tests {
     
+    /**
+     * Test the wallet generation and that it is generating the right number and type of addresses
+     */
     #[test]
     fn test_wallet_generation() {
         use crate::paper::generate_wallet;
@@ -80,7 +97,7 @@ mod tests {
         assert_eq!(j.len(), 1);
         assert!(j[0]["address"].as_str().unwrap().starts_with("ztestsapling"));
         assert!(j[0]["private_key"].as_str().unwrap().starts_with("secret-extended-key-test"));
-        assert!(j[0]["seed"].as_str().unwrap().contains("32'/1'/0'"));
+        assert_eq!(j[0]["seed"]["path"].as_str().unwrap(), "m/32'/1'/0'");
 
 
         // Mainnet wallet
@@ -89,7 +106,7 @@ mod tests {
         assert_eq!(j.len(), 1);
         assert!(j[0]["address"].as_str().unwrap().starts_with("zs"));
         assert!(j[0]["private_key"].as_str().unwrap().starts_with("secret-extended-key-main"));
-        assert!(j[0]["seed"].as_str().unwrap().contains("32'/133'/0'"));
+        assert_eq!(j[0]["seed"]["path"].as_str().unwrap(), "m/32'/133'/0'");
 
         // Check if all the addresses are the same
         let w = generate_wallet(true, 3);
@@ -98,7 +115,7 @@ mod tests {
         let mut s = HashSet::new();
         for i in 0..3 {
             assert!(j[i]["address"].as_str().unwrap().starts_with("ztestsapling"));
-            assert!(j[i]["seed"].as_str().unwrap().contains(format!("32'/1'/{}'", i).as_str()));
+            assert_eq!(j[i]["seed"]["path"].as_str().unwrap(), format!("m/32'/1'/{}'", i).as_str());
 
             s.insert(j[i]["address"].as_str().unwrap());
             s.insert(j[i]["private_key"].as_str().unwrap());
@@ -107,7 +124,7 @@ mod tests {
         assert_eq!(s.len(), 6);
     }
 
-    // Test the address derivation against the test data.
+    // Test the address derivation against the test data (see below)
     fn test_address_derivation(testdata: &str, testnet: bool) {
         use crate::paper::gen_addresses_with_seed_as_json;
         let td = json::parse(&testdata.replace("'", "\"")).unwrap();
@@ -116,7 +133,7 @@ mod tests {
             let seed = hex::decode(i["seed"].as_str().unwrap()).unwrap();
             let num  = i["num"].as_u32().unwrap();
 
-            let addresses = gen_addresses_with_seed_as_json(testnet, num+1, &seed[0..32]);
+            let addresses = gen_addresses_with_seed_as_json(testnet, num+1, &seed[..]);
 
             let j = json::parse(&addresses).unwrap();
             assert_eq!(j[num as usize]["address"], i["addr"]);

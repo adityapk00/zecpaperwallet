@@ -41,7 +41,7 @@ pub fn save_to_pdf(addresses: &str, filename: &str) {
 
         // Add address + private key
         add_address_to_page(&current_layer, &font, &font_bold, kv["address"].as_str().unwrap(), pos);
-        add_pk_to_page(&current_layer, &font, &font_bold, kv["private_key"].as_str().unwrap(), kv["seed"].as_str().unwrap(), pos);
+        add_pk_to_page(&current_layer, &font, &font_bold, kv["private_key"].as_str().unwrap(), kv["seed"]["HDSeed"].as_str().unwrap(), kv["seed"]["path"].as_str().unwrap(), pos);
 
         // Is the shape stroked? Is the shape closed? Is the shape filled?
         let line1 = Line {
@@ -119,8 +119,8 @@ fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef
     let ypos = 297.0        - 5.0       - 50.0            - (140.0 * pos as f64);
     add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(10.0), Mm(ypos));
 
-    current_layer.use_text("Address", 14, Mm(55.0), Mm(ypos+27.5), &font_bold);
-    let strs = split_to_max(&address, 44, 8);
+    current_layer.use_text("ZEC Address (Sapling)", 14, Mm(55.0), Mm(ypos+27.5), &font_bold);
+    let strs = split_to_max(&address, 39, 6);
     for i in 0..strs.len() {
         current_layer.use_text(strs[i].clone(), 12, Mm(55.0), Mm(ypos+15.0-((i*5) as f64)), &font);
     }
@@ -129,21 +129,22 @@ fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef
 /**
  * Add the private key section to the PDF at `pos`, which can effectively be only 0 or 1.
  */
-fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, pk: &str, seed: &str, pos: u32) {
+fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, pk: &str, seed: &str, path: &str, pos: u32) {
     let (scaledimg, finalsize) = qrcode_scaled(pk, 10);
 
     //         page_height  top_margin  vertical_padding  position       
     let ypos = 297.0        - 5.0       - 100.0           - (140.0 * pos as f64);    
     add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(145.0), Mm(ypos-17.5));
 
-    current_layer.use_text("Private Key", 14, Mm(10.0), Mm(ypos+27.5), &font_bold);
+    current_layer.use_text("Private Key", 14, Mm(10.0), Mm(ypos+32.5), &font_bold);
     let strs = split_to_max(&pk, 45, 10);
     for i in 0..strs.len() {
-        current_layer.use_text(strs[i].clone(), 12, Mm(10.0), Mm(ypos+15.0-((i*5) as f64)), &font);
+        current_layer.use_text(strs[i].clone(), 12, Mm(10.0), Mm(ypos+25.0-((i*5) as f64)), &font);
     }
 
     // And add the seed too. 
-    current_layer.use_text(seed, 8, Mm(10.0), Mm(ypos-25.0), &font);
+
+    current_layer.use_text(format!("HDSeed: {}, Path: {}", seed, path).as_str(), 8, Mm(10.0), Mm(ypos-25.0), &font);
 }
 
 /**

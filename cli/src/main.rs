@@ -41,11 +41,7 @@ fn main() {
        .get_matches();  
 
     let testnet: bool = matches.is_present("testnet");
-    if !testnet {
-        eprintln!("Mainnet addresses are not supported yet. Please re-run with --testnet");
-        return;
-    }
-
+    
     let filename = matches.value_of("output");
     let format   = matches.value_of("format").unwrap();
 
