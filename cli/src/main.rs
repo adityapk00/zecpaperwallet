@@ -35,6 +35,7 @@ fn main() {
         .arg(Arg::with_name("entropy")
                 .short("e")
                 .long("entropy")
+                .takes_value(true)
                 .help("Provide additional entropy to the random number generator. Any random string, containing 32-64 characters"))
         .arg(Arg::with_name("z_addresses")
                 .short("z")
