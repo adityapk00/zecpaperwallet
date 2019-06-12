@@ -2,9 +2,11 @@
 zecpaperwallet is a Zcash Sapling paper wallet generator that can run completely offline. You can run it on an air-gapped computer to generate your shielded z-addresses, which will allow you to keep your keys completely offline. 
 
 # Compiling
-zecpaperwallet-cli is built with rust. To compile from source, you [install Rust](https://www.rust-lang.org/tools/install). Basically, you need to just:
-`curl https://sh.rustup.rs -sSf | sh`
-
+zecpaperwallet-cli is built with rust. To compile from source, you [install Rust](https://www.rust-lang.org/tools/install). Basically, you need to:
+```
+curl https://sh.rustup.rs -sSf | sh
+```
+Chekout the zecpaperwallet repository and build the CLI
 ```
 git clone https://github.com/adityapk00/zecpaperwallet.git
 cd zecpaperwallet/cli
