@@ -123,7 +123,7 @@ fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef
     
     let strs = split_to_max(&address, 39, 39);  // No spaces, so user can copy the address
     for i in 0..strs.len() {
-        current_layer.use_text(strs[i].clone(), 12, Mm(55.0), Mm(ypos+15.0-((i*5) as f64)), &font);
+        current_layer.use_text(strs[i].clone(), 12, Mm(55.0), Mm(ypos+20.0-((i*5) as f64)), &font);
     }
 }
 
