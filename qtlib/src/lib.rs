@@ -4,7 +4,7 @@ use zecpaperlib::paper;
 
 #[no_mangle]
 pub extern fn rust_generate_wallet(testnet: bool, count: u32) -> *mut c_char {
-    let c_str = CString::new(paper::generate_wallet(testnet, false, count)).unwrap();
+    let c_str = CString::new(paper::generate_wallet(testnet, false, count, &[])).unwrap();
     return c_str.into_raw();
 }
 
