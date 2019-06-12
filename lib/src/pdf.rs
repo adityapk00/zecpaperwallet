@@ -120,7 +120,8 @@ fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef
     add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(10.0), Mm(ypos));
 
     current_layer.use_text("ZEC Address (Sapling)", 14, Mm(55.0), Mm(ypos+27.5), &font_bold);
-    let strs = split_to_max(&address, 39, 6);
+    
+    let strs = split_to_max(&address, 39, 39);  // No spaces, so user can copy the address
     for i in 0..strs.len() {
         current_layer.use_text(strs[i].clone(), 12, Mm(55.0), Mm(ypos+15.0-((i*5) as f64)), &font);
     }
@@ -137,7 +138,7 @@ fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, fon
     add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(145.0), Mm(ypos-17.5));
 
     current_layer.use_text("Private Key", 14, Mm(10.0), Mm(ypos+32.5), &font_bold);
-    let strs = split_to_max(&pk, 45, 10);
+    let strs = split_to_max(&pk, 45, 45);   // No spaces, so user can copy the private key
     for i in 0..strs.len() {
         current_layer.use_text(strs[i].clone(), 12, Mm(10.0), Mm(ypos+25.0-((i*5) as f64)), &font);
     }
@@ -218,11 +219,13 @@ mod tests {
         assert_eq!(split_to_max(addr, 44, 8).join("\n"), "ztestsap ling1w00 pdjthkzm zgut4c3y 7hu6q6c8 ferj\nczyvc03x wu0rvdgt re8a25em 5w3w6jxg hvcar5jz ehnn\n");
         assert_eq!(split_to_max(addr, 44, 8).join(" ").replace(" ", ""), addr);
         assert_eq!(split_to_max(addr, 42, 8).join(" ").replace(" ", ""), addr);
+        assert_eq!(split_to_max(addr, 39, 39).join(" ").replace(" ", ""), addr);
 
         // Test the PK splitting using max/blocksize we'll know we use
         let pk = "secret-extended-key-test1qj7vst8eqqqqqqpu2w6r0p2ykewm95h3d28k7r7y87e9p4v5zhzd4hj2y57clsprjveg997vqk7ak9tr2pnyyxmfzyzs6dhtuflt3aea9srp08teskpqfy2dtm07n08z3dyra407xumf3fk9ds4x06rzur7mgfyu39krj2g28lsxsxtv7swzu0j9vw4qf8rn5z72ztgeqj6u5zehylqm75c7d3um9ds9zvek4tdyta7qhln5fkc0dks6qwmkvr48fvgucpc3542kmdc97uqzt";
         assert_eq!(split_to_max(pk, 44, 8).join(" ").replace(" ", ""),  pk);
         assert_eq!(split_to_max(pk, 45, 10).join(" ").replace(" ", ""), pk);
+        assert_eq!(split_to_max(pk, 45, 45).join(" ").replace(" ", ""), pk);
 
         // Test random combinations of block size and spaces to ensure that 
         // the string is always preserved
