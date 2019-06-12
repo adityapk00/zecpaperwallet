@@ -8,15 +8,6 @@ edition = "2018"
 rand = "0.5"
 hex = "0.3"
 bech32 = "0.6"
-bellman = { git = "https://github.com/zcash/librustzcash", rev="3b6f5e3d5ede6469f6ae85357f0b03d4c1b45cfe" }
-ff = { git = "https://github.com/zcash/librustzcash", rev="3b6f5e3d5ede6469f6ae85357f0b03d4c1b45cfe" }
-
-pairing = { git = "https://github.com/zcash/librustzcash", rev="3b6f5e3d5ede6469f6ae85357f0b03d4c1b45cfe" }
-
-sapling-crypto = {  git = "https://github.com/zcash/librustzcash", rev="3b6f5e3d5ede6469f6ae85357f0b03d4c1b45cfe" }
-
-zcash_primitives = {  git = "https://github.com/zcash/librustzcash", rev="3b6f5e3d5ede6469f6ae85357f0b03d4c1b45cfe" }
-zcash_proofs = {  git = "https://github.com/zcash/librustzcash", rev="3b6f5e3d5ede6469f6ae85357f0b03d4c1b45cfe" }
 zip32 = {  git = "https://github.com/zcash/librustzcash", rev="3b6f5e3d5ede6469f6ae85357f0b03d4c1b45cfe" }
 json = "0.11.14"    
 qrcode = { version = "0.8", default-features = false }
