@@ -24,6 +24,15 @@ To generate a zcash paper wallet and save it as a PDF, run
 
 This will generate 3 shielded z-addresses and their corresponding private keys, and save them in a PDF file called `zecpaper-output.pdf`
 
+## Run without network
+If you are running a newish version of Linux, you can be doubly sure that the process is not contacting the network by running zecpaperwallet without the network namespace.
+
+```
+sudo unshare -n ./target/release/zecpaperwallet
+```
+`unshare -n` runs the process without a network interface which means you can be sure that your data is not being sent across the network. 
+
+
 ## Help options
 ```
 USAGE:
