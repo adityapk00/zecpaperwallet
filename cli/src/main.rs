@@ -32,10 +32,14 @@ fn main() {
                 .long("output")
                 .index(1)
                 .help("Name of output file."))
+        .arg(Arg::with_name("entropy")
+                .short("e")
+                .long("entropy")
+                .help("Provide additional entropy to the random number generator. Any random string, containing 32-64 characters"))
         .arg(Arg::with_name("z_addresses")
                 .short("z")
-                .long("z_addresses")
-                .help("Number of Z addresses (sapling) to generate")
+                .long("zaddrs")
+                .help("Number of Z addresses (Sapling) to generate")
                 .takes_value(true)
                 .default_value("1")                
                 .validator(|i:String| match i.parse::<i32>() {
@@ -48,6 +52,23 @@ fn main() {
     
     let nohd: bool    = matches.is_present("nohd");
 
+    // Get user entropy. 
+    let mut entropy: Vec<u8> = Vec::new();
+    // If the user hasn't specified any, read from the stdin
+    if matches.value_of("entropy").is_none() {
+        // Read from stdin
+        println!("Provide additional entropy for generating random numbers. Type in a string of random characters, press [ENTER] when done");
+        let mut buffer = String::new();
+        let stdin = io::stdin();
+        stdin.lock().read_line(&mut buffer).unwrap();
+
+        entropy.extend_from_slice(buffer.as_bytes());
+    } else {
+        // Use provided entropy. 
+        entropy.extend(matches.value_of("entropy").unwrap().as_bytes());
+    }
+
+    // Get the filename and output format
     let filename = matches.value_of("output");
     let format   = matches.value_of("format").unwrap();
 
@@ -57,11 +78,12 @@ fn main() {
         return;
     }
 
-    let num_addresses = matches.value_of("z_addresses").unwrap().parse::<u32>().unwrap();
+    // Number of z addresses to generate
+    let num_addresses = matches.value_of("z_addresses").unwrap().parse::<u32>().unwrap();    
 
     print!("Generating {} Sapling addresses.........", num_addresses);
     io::stdout().flush().ok();
-    let addresses = generate_wallet(testnet, nohd, num_addresses); 
+    let addresses = generate_wallet(testnet, nohd, num_addresses, &entropy); 
     println!("[OK]");
     
     // If the default format is present, write to the console if the filename is absent

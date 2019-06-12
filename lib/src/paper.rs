@@ -1,25 +1,41 @@
 
 use zip32::{ChildIndex, ExtendedSpendingKey};
 use bech32::{Bech32, u5, ToBase32};
-use rand::{Rng, ChaChaRng, FromEntropy};
+use rand::{Rng, ChaChaRng, FromEntropy, SeedableRng};
 use json::{array, object};
+use blake2_rfc::blake2b::Blake2b;
 
 /**
  * Generate a series of `count` addresses and private keys. 
  */
-pub fn generate_wallet(testnet: bool, nohd: bool, count: u32) -> String {    
+pub fn generate_wallet(testnet: bool, nohd: bool, count: u32, user_entropy: &[u8]) -> String {        
+    // Get 32 bytes of system entropy
+    let mut system_entropy:[u8; 32] = [0; 32]; 
+    {
+        let mut system_rng = ChaChaRng::from_entropy();    
+        system_rng.fill(&mut system_entropy);
+    }
+
+    // Add in user entropy to the system entropy, and produce a 32 byte hash... 
+    let mut state = Blake2b::new(32);
+    state.update(&system_entropy);
+    state.update(&user_entropy);
+    
+    let mut final_entropy: [u8; 32] = [0; 32];
+    final_entropy.clone_from_slice(&state.finalize().as_bytes()[0..32]);
+
+    // ...which will we use to seed the RNG
+    let mut rng = ChaChaRng::from_seed(final_entropy);
+
     if !nohd {
-        // Allow HD addresses, so use only 1 seed
-        let mut rng = ChaChaRng::from_entropy();
-        let mut seed:[u8; 32] = [0; 32]; 
+        // Allow HD addresses, so use only 1 seed        
+        let mut seed: [u8; 32] = [0; 32];
         rng.fill(&mut seed);
         
         return gen_addresses_with_seed_as_json(testnet, count, |i| (seed.to_vec(), i));
     } else {
-        // Not using HD addresses, so derive a new seed every time
-
-        return gen_addresses_with_seed_as_json(testnet, count, |_| {
-            let mut rng = ChaChaRng::from_entropy();
+        // Not using HD addresses, so derive a new seed every time    
+        return gen_addresses_with_seed_as_json(testnet, count, |_| {            
             let mut seed:[u8; 32] = [0; 32]; 
             rng.fill(&mut seed);
             
@@ -39,8 +55,8 @@ pub fn generate_wallet(testnet: bool, nohd: bool, count: u32) -> String {
  *
  * It is useful if we want to reuse (or not) the seed across multiple wallets.
  */
-fn gen_addresses_with_seed_as_json<F>(testnet: bool, count: u32, get_seed: F) -> String 
-    where F: Fn(u32) -> (Vec<u8>, u32)
+fn gen_addresses_with_seed_as_json<F>(testnet: bool, count: u32, mut get_seed: F) -> String 
+    where F: FnMut(u32) -> (Vec<u8>, u32)
 {
     let mut ans = array![];
 
@@ -113,7 +129,7 @@ mod tests {
         use std::collections::HashSet;
         
         // Testnet wallet
-        let w = generate_wallet(true, false, 1);
+        let w = generate_wallet(true, false, 1, &[]);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 1);
         assert!(j[0]["address"].as_str().unwrap().starts_with("ztestsapling"));
@@ -122,7 +138,7 @@ mod tests {
 
 
         // Mainnet wallet
-        let w = generate_wallet(false, false, 1);
+        let w = generate_wallet(false, false, 1, &[]);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 1);
         assert!(j[0]["address"].as_str().unwrap().starts_with("zs"));
@@ -130,7 +146,7 @@ mod tests {
         assert_eq!(j[0]["seed"]["path"].as_str().unwrap(), "m/32'/133'/0'");
 
         // Check if all the addresses are the same
-        let w = generate_wallet(true, false, 3);
+        let w = generate_wallet(true, false, 3, &[]);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 3);
 
@@ -161,7 +177,7 @@ mod tests {
         use std::collections::HashSet;
         
         // Check if all the addresses use a different seed
-        let w = generate_wallet(true, true, 3);
+        let w = generate_wallet(true, true, 3, &[]);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 3);
 
