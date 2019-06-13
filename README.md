@@ -1,8 +1,22 @@
 # zecpaperwallet
 zecpaperwallet is a Zcash Sapling paper wallet generator that can run completely offline. You can run it on an air-gapped computer to generate your shielded z-addresses, which will allow you to keep your keys completely offline. 
 
-# Compiling
-zecpaperwallet-cli is built with rust. To compile from source, you [install Rust](https://www.rust-lang.org/tools/install). Basically, you need to:
+# Download
+zecpaperwallet is available as pre-built binaries from our [release page](https://github.com/adityapk00/zecpaperwallet/releases). Download the zip file for your platform, extract it and run the `./zecpaperwallet` binary. 
+
+# Generating wallets
+To generate a zcash paper wallet, simply run `./zecpaperwallet`
+
+You'll be asked to type some random characters that will add entropy to the random number generator. Run with `--help` to see all options
+
+## Saving as PDFs
+To generate a zcash paper wallet and save it as a PDF, run
+`./zecpaperwallet -z 3 --format pdf zecpaper-output.pdf`
+
+This will generate 3 shielded z-addresses and their corresponding private keys, and save them in a PDF file called `zecpaper-output.pdf`
+
+# Compiling from Source
+zecpaperwallet is built with rust. To compile from source, you [install Rust](https://www.rust-lang.org/tools/install). Basically, you need to:
 ```
 curl https://sh.rustup.rs -sSf | sh
 ```
@@ -12,17 +26,8 @@ git clone https://github.com/adityapk00/zecpaperwallet.git
 cd zecpaperwallet/cli
 cargo build --release
 ```
-# Generating wallets
-To generate a zcash paper wallet, simply run
-`./target/release/zecpaperwallet`
 
-You'll be asked to type some random characters that will add entropy to the random number generator. 
-
-## Saving as PDFs
-To generate a zcash paper wallet and save it as a PDF, run
-`./target/release/zecpaperwallet -z 3 --format pdf zecpaper-output.pdf`
-
-This will generate 3 shielded z-addresses and their corresponding private keys, and save them in a PDF file called `zecpaper-output.pdf`
+The binary is available in the `target/release` folder.
 
 ## Run without network
 If you are running a newish version of Linux, you can be doubly sure that the process is not contacting the network by running zecpaperwallet without the network namespace.
