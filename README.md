@@ -5,12 +5,12 @@ zecpaperwallet is a Zcash Sapling paper wallet generator that can run completely
 zecpaperwallet is available as pre-built binaries from our [release page](https://github.com/adityapk00/zecpaperwallet/releases). Download the zip file for your platform, extract it and run the `./zecpaperwallet` binary. 
 
 # Generating wallets
-To generate a zcash paper wallet, simply run `./zecpaperwallet`
+To generate a Zcash paper wallet, simply run `./zecpaperwallet`
 
 You'll be asked to type some random characters that will add entropy to the random number generator. Run with `--help` to see all options
 
 ## Saving as PDFs
-To generate a zcash paper wallet and save it as a PDF, run
+To generate a Zcash paper wallet and save it as a PDF, run
 `./zecpaperwallet -z 3 --format pdf zecpaper-output.pdf`
 
 This will generate 3 shielded z-addresses and their corresponding private keys, and save them in a PDF file called `zecpaper-output.pdf`
@@ -20,7 +20,7 @@ zecpaperwallet is built with rust. To compile from source, you [install Rust](ht
 ```
 curl https://sh.rustup.rs -sSf | sh
 ```
-Chekout the zecpaperwallet repository and build the CLI
+Checkout the zecpaperwallet repository and build the CLI
 ```
 git clone https://github.com/adityapk00/zecpaperwallet.git
 cd zecpaperwallet/cli
