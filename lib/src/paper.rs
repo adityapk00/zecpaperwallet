@@ -7,7 +7,6 @@ use zip32::{ChildIndex, ExtendedSpendingKey};
 use bech32::{Bech32, u5, ToBase32};
 use rand::{Rng, ChaChaRng, FromEntropy, SeedableRng};
 use json::{array, object};
-use blake2_rfc::blake2b::Blake2b;
 use sha2;
 
 
@@ -53,12 +52,12 @@ pub fn generate_wallet(testnet: bool, nohd: bool, zcount: u32, tcount: u32, user
     }
 
     // Add in user entropy to the system entropy, and produce a 32 byte hash... 
-    let mut state = Blake2b::new(32);
-    state.update(&system_entropy);
-    state.update(&user_entropy);
+    let mut state = sha2::Sha256::new();
+    state.input(&system_entropy);
+    state.input(&user_entropy);
     
     let mut final_entropy: [u8; 32] = [0; 32];
-    final_entropy.clone_from_slice(&state.finalize().as_bytes()[0..32]);
+    final_entropy.clone_from_slice(&double_sha256(&state.result()[..]));
 
     // ...which will we use to seed the RNG
     let mut rng = ChaChaRng::from_seed(final_entropy);

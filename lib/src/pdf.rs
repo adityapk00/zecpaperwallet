@@ -39,9 +39,18 @@ pub fn save_to_pdf(addresses: &str, filename: &str) {
             current_layer = doc.get_page(page2).add_layer("Layer 3");
         }
 
+        let address = kv["address"].as_str().unwrap();
+        let pk      = kv["private_key"].as_str().unwrap();
+
+        let (seed, hdpath, is_taddr) = if kv["type"].as_str().unwrap() == "zaddr" {
+            (kv["seed"]["HDSeed"].as_str().unwrap(), kv["seed"]["path"].as_str().unwrap(), false)
+        } else {
+            ("", "", true)
+        };
+        
         // Add address + private key
-        add_address_to_page(&current_layer, &font, &font_bold, kv["address"].as_str().unwrap(), pos);
-        add_pk_to_page(&current_layer, &font, &font_bold, kv["private_key"].as_str().unwrap(), kv["seed"]["HDSeed"].as_str().unwrap(), kv["seed"]["path"].as_str().unwrap(), pos);
+        add_address_to_page(&current_layer, &font, &font_bold, address, is_taddr, pos);
+        add_pk_to_page(&current_layer, &font, &font_bold, pk, is_taddr, seed, hdpath, pos);
 
         // Is the shape stroked? Is the shape closed? Is the shape filled?
         let line1 = Line {
@@ -112,14 +121,15 @@ fn add_footer_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef,
 /**
  * Add the address section to the PDF at `pos`. Note that each page can fit only 2 wallets, so pos has to effectively be either 0 or 1.
  */
-fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, address: &str, pos: u32) {
-    let (scaledimg, finalsize) = qrcode_scaled(address, 10);
+fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, address: &str, is_taddr: bool, pos: u32) {
+    let (scaledimg, finalsize) = qrcode_scaled(address, if is_taddr {15} else {10});
 
-    //         page_height  top_margin  vertical_padding  position       
+    //         page_height  top_margin  vertical_padding  position               
     let ypos = 297.0        - 5.0       - 50.0            - (140.0 * pos as f64);
     add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(10.0), Mm(ypos));
 
-    current_layer.use_text("ZEC Address (Sapling)", 14, Mm(55.0), Mm(ypos+27.5), &font_bold);
+    let title = if is_taddr {"T Address"} else {"ZEC Address (Sapling)"};
+    current_layer.use_text(title, 14, Mm(55.0), Mm(ypos+27.5), &font_bold);
     
     let strs = split_to_max(&address, 39, 39);  // No spaces, so user can copy the address
     for i in 0..strs.len() {
@@ -130,11 +140,11 @@ fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef
 /**
  * Add the private key section to the PDF at `pos`, which can effectively be only 0 or 1.
  */
-fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, pk: &str, seed: &str, path: &str, pos: u32) {
-    let (scaledimg, finalsize) = qrcode_scaled(pk, 10);
+fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, pk: &str, is_taddr: bool, seed: &str, path: &str, pos: u32) {
+    let (scaledimg, finalsize) = qrcode_scaled(pk, if is_taddr {20} else {10});
 
-    //         page_height  top_margin  vertical_padding  position       
-    let ypos = 297.0        - 5.0       - 100.0           - (140.0 * pos as f64);    
+    //         page_height  top_margin  vertical_padding  position               
+    let ypos = 297.0        - 5.0       - 100.0           - (140.0 * pos as f64);
     add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(145.0), Mm(ypos-17.5));
 
     current_layer.use_text("Private Key", 14, Mm(10.0), Mm(ypos+32.5), &font_bold);
@@ -144,8 +154,9 @@ fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, fon
     }
 
     // And add the seed too. 
-
-    current_layer.use_text(format!("HDSeed: {}, Path: {}", seed, path).as_str(), 8, Mm(10.0), Mm(ypos-25.0), &font);
+    if !is_taddr {
+        current_layer.use_text(format!("HDSeed: {}, Path: {}", seed, path).as_str(), 8, Mm(10.0), Mm(ypos-25.0), &font);
+    }
 }
 
 /**
