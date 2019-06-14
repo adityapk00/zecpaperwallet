@@ -209,7 +209,7 @@ mod tests {
         use std::collections::HashSet;
         
         // Testnet wallet
-        let w = generate_wallet(true, false, 1, &[]);
+        let w = generate_wallet(true, false, 1, 0, &[]);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 1);
         assert!(j[0]["address"].as_str().unwrap().starts_with("ztestsapling"));
@@ -218,7 +218,7 @@ mod tests {
 
 
         // Mainnet wallet
-        let w = generate_wallet(false, false, 1, &[]);
+        let w = generate_wallet(false, false, 1, 0, &[]);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 1);
         assert!(j[0]["address"].as_str().unwrap().starts_with("zs"));
@@ -226,7 +226,7 @@ mod tests {
         assert_eq!(j[0]["seed"]["path"].as_str().unwrap(), "m/32'/133'/0'");
 
         // Check if all the addresses are the same
-        let w = generate_wallet(true, false, 3, &[]);
+        let w = generate_wallet(true, false, 3, 0, &[]);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 3);
 
@@ -248,6 +248,53 @@ mod tests {
         assert_eq!(set2.len(), 1);
     }
 
+    #[test]
+    fn test_tandz_wallet_generation() {
+        use crate::paper::generate_wallet;
+        use std::collections::HashSet;
+        
+        // Testnet wallet
+        let w = generate_wallet(true, false, 1, 1, &[]);
+        let j = json::parse(&w).unwrap();
+        assert_eq!(j.len(), 2);
+
+        assert!(j[0]["address"].as_str().unwrap().starts_with("tm"));
+        let pk = j[0]["private_key"].as_str().unwrap();
+        assert!(pk.starts_with("c") || pk.starts_with("9"));
+
+        assert!(j[1]["address"].as_str().unwrap().starts_with("ztestsapling"));
+        assert!(j[1]["private_key"].as_str().unwrap().starts_with("secret-extended-key-test"));
+        assert_eq!(j[1]["seed"]["path"].as_str().unwrap(), "m/32'/1'/0'");
+
+
+        // Mainnet wallet
+        let w = generate_wallet(false, false, 1, 1, &[]);
+        let j = json::parse(&w).unwrap();
+        assert_eq!(j.len(), 2);
+
+        assert!(j[0]["address"].as_str().unwrap().starts_with("t1"));
+        let pk = j[0]["private_key"].as_str().unwrap();
+        assert!(pk.starts_with("L") || pk.starts_with("K") || pk.starts_with("5"));
+
+        assert!(j[1]["address"].as_str().unwrap().starts_with("zs"));
+        assert!(j[1]["private_key"].as_str().unwrap().starts_with("secret-extended-key-main"));
+        assert_eq!(j[1]["seed"]["path"].as_str().unwrap(), "m/32'/133'/0'");
+
+        // Check if all the addresses are the same
+        let w = generate_wallet(true, false, 3, 3, &[]);
+        let j = json::parse(&w).unwrap();
+        assert_eq!(j.len(), 6);
+
+        let mut set1 = HashSet::new();
+        for i in 0..6 {
+            set1.insert(j[i]["address"].as_str().unwrap());
+            set1.insert(j[i]["private_key"].as_str().unwrap());
+        }
+
+        // There should be 6 + 6 distinct addresses and private keys
+        assert_eq!(set1.len(), 12);
+    }
+
     /**
      * Test nohd address generation, which does not use the same sed.
      */
@@ -257,7 +304,7 @@ mod tests {
         use std::collections::HashSet;
         
         // Check if all the addresses use a different seed
-        let w = generate_wallet(true, true, 3, &[]);
+        let w = generate_wallet(true, true, 3, 0, &[]);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 3);
 
@@ -288,13 +335,62 @@ mod tests {
             let seed = hex::decode(i["seed"].as_str().unwrap()).unwrap();
             let num  = i["num"].as_u32().unwrap();
 
-            let addresses = gen_addresses_with_seed_as_json(testnet, num+1, |child| (seed.clone(), child));
+            let addresses = gen_addresses_with_seed_as_json(testnet, num+1, 0, |child| (seed.clone(), child));
 
             let j = json::parse(&addresses).unwrap();
             assert_eq!(j[num as usize]["address"], i["addr"]);
             assert_eq!(j[num as usize]["private_key"], i["pk"]);
         }
     }
+
+    #[test]
+    fn test_taddr_testnet() {
+        use crate::paper::get_taddress;
+        use rand::{ChaChaRng, SeedableRng};
+
+        // 0-seeded, for predictable outcomes
+        let seed : [u8; 32] = [0; 32];
+        let mut rng = ChaChaRng::from_seed(seed);
+
+        let testdata = [
+            ["tmEw65eREGVhneyqwB442UnjeVaTaJVWvi9", "cRZUuqfYFZ6bv7QxEjDMHpnxQmJG2oncZ2DAZsfVXmB2SCts8Z2N"],
+            ["tmXJQzrFTRAPpmVhrWTVUwFp7X4sisUdw2X", "cUtxiJ8n67Au9eM7WnTyRQNewfcW9bJZkKWkUkKgwqdsp2eayU57"],
+            ["tmGb1FcP31uFVtKU319thMiR2J7krABDWku", "cSuqVYsMGutnxjYNeL1DMQpiv2isMwF8gVG2oLNTnECWVGjTpB5N"],
+            ["tmHQ9fDGWqk684tjWvvEWZ8BSkpNrQ162Yb", "cNynpdfzR4jgZi5E6ihAQhzeKB2w7NXNbVvznr9oW26VoJCGHiLW"],
+            ["tmNS3LoTEFgUuEwzyYinoan4AceJ4dc21SR", "cP6FPTWbehuiXBpUnDW5iYVayEKeboxFQftx97GfSGwBs1HgPYjS"]
+        ];
+
+        for i in 0..5 {
+            let (a, sk) = get_taddress(true, &mut rng);
+            assert_eq!(a, testdata[i][0]);
+            assert_eq!(sk, testdata[i][1]);
+        }        
+    }
+
+    #[test]
+    fn test_taddr_mainnet() {
+        use crate::paper::get_taddress;
+        use rand::{ChaChaRng, SeedableRng};
+
+        // 0-seeded, for predictable outcomes
+        let seed : [u8; 32] = [0; 32];
+        let mut rng = ChaChaRng::from_seed(seed);
+
+        let testdata = [
+            ["t1P6LkovpsqCHWjeVWKkHd84ttbNksfW6k6", "L1CVSvfgpVQLkfwgrKQDvWHtnXzrNMgvUz4hTTCz2eX2BTmWSCaE"],
+            ["t1fTfg1m42VtKdFWQqjBk5b9Mv5nuPo7XLL", "L4XyFP8vf3UdzCsr8Ner45sbKSK6V9CsgHNHNKsBSiysZHaeQDq7"],
+            ["t1QkFvmtddEjzk5GbLRaxW3kGh8g2jDqSHP", "L2Yr2dsVqrCXoJ57FvC5z6KfHoRThV9ScT7ZguuxH7YWEXboHTY6"],
+            ["t1RZQLNn7T5acveY5GBvmhTWh9qJ2vy9hC9", "KxcoMig8z13RQGbxiJt33PVagwjXSvRgXTnXgRhHzuSVYZ9KdGUh"],
+            ["t1WbJ1xxps1yQ6hoXszV4j7PR1fDF7WogPz", "KxjFvYWkDeDTMkMDPogxMDzXM12EwMrZLdkV2gp9wAHBcGEcBPqZ"],
+        ];
+
+        for i in 0..5 {
+            let (a, sk) = get_taddress(false, &mut rng);
+            assert_eq!(a, testdata[i][0]);
+            assert_eq!(sk, testdata[i][1]);
+        }
+    }
+    
 
     /*
         Test data was derived from zcashd. It cointains 20 sets of seeds, and for each seed, it contains 5 accounts that are derived for the testnet and mainnet. 
