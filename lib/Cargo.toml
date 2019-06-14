@@ -13,3 +13,7 @@ json = "0.11.14"
 qrcode = { version = "0.8", default-features = false }
 printpdf = "0.2.8"
 blake2-rfc = { git = "https://github.com/gtank/blake2-rfc", rev="7a5b5fc99ae483a0043db7547fb79a6fa44b88a9" }
+secp256k1 = { version = "0.13.0", features = ["rand", "serde"] }
+ripemd160 = "0.8.0"
+sha2 = "0.8.0"
+base58 = "0.1.0"
