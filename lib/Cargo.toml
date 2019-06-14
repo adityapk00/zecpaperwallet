@@ -12,7 +12,7 @@ zip32 = {  git = "https://github.com/zcash/librustzcash", rev="3b6f5e3d5ede6469f
 json = "0.11.14"    
 qrcode = { version = "0.8", default-features = false }
 printpdf = "0.2.8"
-secp256k1 = { version = "0.13.0", features = ["rand", "serde"] }
+secp256k1 = { version = "0.13.0", features = ["rand"] }
 ripemd160 = "0.8.0"
 sha2 = "0.8.0"
 base58 = "0.1.0"
