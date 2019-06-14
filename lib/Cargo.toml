@@ -16,3 +16,6 @@ secp256k1 = { version = "0.13.0", features = ["rand", "serde"] }
 ripemd160 = "0.8.0"
 sha2 = "0.8.0"
 base58 = "0.1.0"
+
+[dev-dependencies]
+array2d = "0.1.0"
