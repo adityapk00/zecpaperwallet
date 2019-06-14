@@ -32,7 +32,7 @@ cargo clean
 cargo build --release 
 
 # For Windows and Linux, build via docker
-docker run --rm -v $(pwd)/..:/opt/zecpaperwallet rust/zecpaperwallet:v0.1 bash -c "cd /opt/zecpaperwallet/cli && cargo build --release --target x86_64-unknown-linux-musl && cargo build --release --target x86_64-pc-windows-gnu"
+docker run --rm -v $(pwd)/..:/opt/zecpaperwallet rust/zecpaperwallet:v0.2 bash -c "cd /opt/zecpaperwallet/cli && cargo build --release --target x86_64-unknown-linux-musl && cargo build --release --target x86_64-pc-windows-gnu && cargo build --release --target aarch64-unknown-linux-gnu"
 
 # Now sign and zip the binaries
 #macOS
@@ -72,3 +72,17 @@ gsha256sum zecpaperwallet.exe > sha256sum.txt
 cd ..
 zip -r Windows-zecpaperwallet-v$APP_VERSION.zip Windows-zecpaperwallet-v$APP_VERSION 
 cd ..
+
+
+# aarch64 (armv8)
+rm -rf target/aarch64-zecpaperwallet-v$APP_VERSION
+mkdir -p target/aarch64-zecpaperwallet-v$APP_VERSION
+cp target/aarch64-unknown-linux-gnu/release/zecpaperwallet target/aarch64-zecpaperwallet-v$APP_VERSION/
+gpg --batch --output target/aarch64-zecpaperwallet-v$APP_VERSION/zecpaperwallet.sig --detach-sig target/aarch64-zecpaperwallet-v$APP_VERSION/zecpaperwallet
+cd target
+cd aarch64-zecpaperwallet-v$APP_VERSION
+gsha256sum zecpaperwallet > sha256sum.txt
+cd ..
+zip -r aarch64-zecpaperwallet-v$APP_VERSION.zip aarch64-zecpaperwallet-v$APP_VERSION 
+cd ..
+
