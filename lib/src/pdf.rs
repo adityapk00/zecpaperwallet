@@ -208,6 +208,55 @@ fn split_to_max(s: &str, max: usize, blocksize: usize) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn test_qrcode_scale() {
+        use array2d::Array2D;
+        use qrcode::QrCode;
+        use crate::pdf::qrcode_scaled;
+
+        let testdata = "This is some testdata";
+        let code = QrCode::new(testdata.as_bytes()).unwrap();
+        let width = code.width();
+
+        let factor  = 10;
+        let padding = 10;
+
+        let (scaled, size) = qrcode_scaled(testdata, factor);
+        let scaled_size = (width * factor)+(2*padding);
+
+        assert_eq!(size, scaled_size);
+
+        // 3 bytes per pixel
+        let scaled_qrcode = Array2D::from_row_major(&scaled, scaled_size, scaled_size*3); 
+
+        for i in 0..scaled_size {
+            for j in 0..scaled_size {
+                for px in 0..3 {
+                    // The padding should be white
+                    if i < padding || i >= (width*factor) + padding ||
+                       j < padding || j >= (width*factor) + padding {
+                            assert_eq!(scaled_qrcode[(i, j*3+px)], 255u8);
+                    } else {
+                        // Should match the QR code module
+                        let module_i = (i-padding)/factor;
+                        let module_j = (j-padding)/factor;
+                        
+                        // This should really be (i,j), but I think there's a bug in the qrcode
+                        // module that is returning it the other way.
+                        if code[(module_j, module_i)] == qrcode::Color::Light {
+                            // Light color is white
+                            assert_eq!(scaled_qrcode[(i, j*3+px)], 255u8);
+                        } else {
+                            // Dark color is black
+                            assert_eq!(scaled_qrcode[(i, j*3+px)], 0u8);
+                        }
+                    }
+                }
+            }
+        }
+
+    }
     
     #[test]
     fn test_split() {
