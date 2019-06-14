@@ -231,31 +231,34 @@ mod tests {
         let scaled_qrcode = Array2D::from_row_major(&scaled, scaled_size, scaled_size*3); 
 
         for i in 0..scaled_size {
-            for j in 0..scaled_size {
-                for px in 0..3 {
-                    // The padding should be white
-                    if i < padding || i >= (width*factor) + padding ||
-                       j < padding || j >= (width*factor) + padding {
+            for j in 0..scaled_size {                
+                // The padding should be white
+                if i < padding || i >= (width*factor) + padding ||
+                    j < padding || j >= (width*factor) + padding {
+                        for px in 0..3 {
                             assert_eq!(scaled_qrcode[(i, j*3+px)], 255u8);
-                    } else {
-                        // Should match the QR code module
-                        let module_i = (i-padding)/factor;
-                        let module_j = (j-padding)/factor;
-                        
-                        // This should really be (i,j), but I think there's a bug in the qrcode
-                        // module that is returning it the other way.
-                        if code[(module_j, module_i)] == qrcode::Color::Light {
-                            // Light color is white
-                            assert_eq!(scaled_qrcode[(i, j*3+px)], 255u8);
-                        } else {
-                            // Dark color is black
-                            assert_eq!(scaled_qrcode[(i, j*3+px)], 0u8);
                         }
+                } else {
+                    // Should match the QR code module
+                    let module_i = (i-padding)/factor;
+                    let module_j = (j-padding)/factor;
+                    
+                    // This should really be (i,j), but I think there's a bug in the qrcode
+                    // module that is returning it the other way.
+                    let color = if code[(module_j, module_i)] == qrcode::Color::Light {
+                        // Light color is white
+                        255u8
+                    } else {
+                        // Dark color is black
+                        0u8
+                    };
+
+                    for px in 0..3 {
+                        assert_eq!(scaled_qrcode[(i, j*3+px)], color);
                     }
                 }
             }
         }
-
     }
     
     #[test]
