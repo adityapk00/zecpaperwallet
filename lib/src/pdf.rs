@@ -50,9 +50,8 @@ pub fn save_to_pdf(addresses: &str, filename: &str) {
         
         // Add address + private key
         add_address_to_page(&current_layer, &font, &font_bold, address, is_taddr, pos);
-        add_pk_to_page(&current_layer, &font, &font_bold, pk, is_taddr, seed, hdpath, pos);
-
-        // Is the shape stroked? Is the shape closed? Is the shape filled?
+        add_pk_to_page(&current_layer, &font, &font_bold, pk, address, is_taddr, seed, hdpath, pos);
+ 
         let line1 = Line {
             points: vec![(Point::new(Mm(5.0), Mm(160.0)), false), (Point::new(Mm(205.0), Mm(160.0)), false)],
             is_closed: true,
@@ -122,13 +121,17 @@ fn add_footer_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef,
  * Add the address section to the PDF at `pos`. Note that each page can fit only 2 wallets, so pos has to effectively be either 0 or 1.
  */
 fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, address: &str, is_taddr: bool, pos: u32) {
-    let (scaledimg, finalsize) = qrcode_scaled(address, if is_taddr {15} else {10});
+    let (scaledimg, finalsize) = qrcode_scaled(address, if is_taddr {13} else {10});
 
     //         page_height  top_margin  vertical_padding  position               
-    let ypos = 297.0        - 5.0       - 50.0            - (140.0 * pos as f64);
-    add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(10.0), Mm(ypos));
-
+    let ypos = 297.0        - 5.0       - 35.0            - (140.0 * pos as f64);
     let title = if is_taddr {"T Address"} else {"ZEC Address (Sapling)"};
+
+    add_address_at(current_layer, font, font_bold, title, address, &scaledimg, finalsize, ypos);
+}
+
+fn add_address_at(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, title: &str, address: &str, qrcode: &Vec<u8>, finalsize: usize, ypos: f64) {
+    add_qrcode_image_to_page(current_layer, qrcode, finalsize, Mm(10.0), Mm(ypos));
     current_layer.use_text(title, 14, Mm(55.0), Mm(ypos+27.5), &font_bold);
     
     let strs = split_to_max(&address, 39, 39);  // No spaces, so user can copy the address
@@ -140,29 +143,60 @@ fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef
 /**
  * Add the private key section to the PDF at `pos`, which can effectively be only 0 or 1.
  */
-fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, pk: &str, is_taddr: bool, seed: &str, path: &str, pos: u32) {
+fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, pk: &str, address: &str, is_taddr: bool, seed: &str, path: &str, pos: u32) {
+    //         page_height  top_margin  vertical_padding  position               
+    let ypos = 297.0        - 5.0       - 90.0           - (140.0 * pos as f64);
+    
+    let line1 = Line {
+            points: vec![(Point::new(Mm(5.0), Mm(ypos + 50.0)), false), (Point::new(Mm(205.0), Mm(ypos + 50.0)), false)],
+            is_closed: true,
+            has_fill: false,
+            has_stroke: true,
+            is_clipping_path: false,
+        };
+
+    let outline_color = printpdf::Color::Rgb(Rgb::new(0.0, 0.0, 0.0, None));
+
+    current_layer.set_outline_color(outline_color);
+    let mut dash_pattern = LineDashPattern::default();
+    dash_pattern.dash_1 = Some(5);
+    current_layer.set_line_dash_pattern(dash_pattern);
+    current_layer.set_outline_thickness(1.0);
+
+    // Draw first line
+    current_layer.add_shape(line1);
+
+    // Reset the dashed line pattern
+    current_layer.set_line_dash_pattern(LineDashPattern::default());
+
     let (scaledimg, finalsize) = qrcode_scaled(pk, if is_taddr {20} else {10});
 
-    //         page_height  top_margin  vertical_padding  position               
-    let ypos = 297.0        - 5.0       - 100.0           - (140.0 * pos as f64);
-    add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(145.0), Mm(ypos-17.5));
+    add_qrcode_image_to_page(current_layer, &scaledimg, finalsize, Mm(145.0), Mm(ypos-17.5));
 
-    current_layer.use_text("Private Key", 14, Mm(10.0), Mm(ypos+32.5), &font_bold);
+    current_layer.use_text("Private Key", 14, Mm(10.0), Mm(ypos+37.5), &font_bold);
     let strs = split_to_max(&pk, 45, 45);   // No spaces, so user can copy the private key
     for i in 0..strs.len() {
-        current_layer.use_text(strs[i].clone(), 12, Mm(10.0), Mm(ypos+25.0-((i*5) as f64)), &font);
+        current_layer.use_text(strs[i].clone(), 12, Mm(10.0), Mm(ypos+32.5-((i*5) as f64)), &font);
+    }
+
+    // Add the address a second time below the private key
+    let title = if is_taddr {"T Address"} else {"ZEC Address (Sapling)"};
+    current_layer.use_text(title, 12, Mm(10.0), Mm(ypos-10.0), &font_bold);    
+    let strs = split_to_max(&address, 39, 39);  // No spaces, so user can copy the address
+    for i in 0..strs.len() {
+        current_layer.use_text(strs[i].clone(), 12, Mm(10.0), Mm(ypos-15.0-((i*5) as f64)), &font);
     }
 
     // And add the seed too. 
     if !is_taddr {
-        current_layer.use_text(format!("HDSeed: {}, Path: {}", seed, path).as_str(), 8, Mm(10.0), Mm(ypos-25.0), &font);
+        current_layer.use_text(format!("HDSeed: {}, Path: {}", seed, path).as_str(), 8, Mm(10.0), Mm(ypos-35.0), &font);
     }
 }
 
 /**
  * Insert the given QRCode into the PDF at the given x,y co-ordinates. The qr code is a vector of RGB values. 
  */
-fn add_qrcode_image_to_page(current_layer: &PdfLayerReference, qr: Vec<u8>, qrsize: usize, x: Mm, y: Mm) {
+fn add_qrcode_image_to_page(current_layer: &PdfLayerReference, qr: &Vec<u8>, qrsize: usize, x: Mm, y: Mm) {
     // you can also construct images manually from your data:
     let image_file_2 = ImageXObject {
             width: Px(qrsize),
@@ -173,7 +207,7 @@ fn add_qrcode_image_to_page(current_layer: &PdfLayerReference, qr: Vec<u8>, qrsi
             /* put your bytes here. Make sure the total number of bytes =
             width * height * (bytes per component * number of components)
             (e.g. 2 (bytes) x 3 (colors) for RGB 16bit) */
-            image_data: qr,
+            image_data: qr.to_vec(),
             image_filter: None, /* does not work yet */
             clipping_bbox: None, /* doesn't work either, untested */
     };
