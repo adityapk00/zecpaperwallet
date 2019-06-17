@@ -273,27 +273,26 @@ mod tests {
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 2);
 
-        assert!(j[0]["address"].as_str().unwrap().starts_with("tm"));
-        let pk = j[0]["private_key"].as_str().unwrap();
+        assert!(j[0]["address"].as_str().unwrap().starts_with("ztestsapling"));
+        assert!(j[0]["private_key"].as_str().unwrap().starts_with("secret-extended-key-test"));
+        assert_eq!(j[0]["seed"]["path"].as_str().unwrap(), "m/32'/1'/0'");
+
+        assert!(j[1]["address"].as_str().unwrap().starts_with("tm"));
+        let pk = j[1]["private_key"].as_str().unwrap();
         assert!(pk.starts_with("c") || pk.starts_with("9"));
-
-        assert!(j[1]["address"].as_str().unwrap().starts_with("ztestsapling"));
-        assert!(j[1]["private_key"].as_str().unwrap().starts_with("secret-extended-key-test"));
-        assert_eq!(j[1]["seed"]["path"].as_str().unwrap(), "m/32'/1'/0'");
-
 
         // Mainnet wallet
         let w = generate_wallet(false, false, 1, 1, &[]);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 2);
 
-        assert!(j[0]["address"].as_str().unwrap().starts_with("t1"));
-        let pk = j[0]["private_key"].as_str().unwrap();
-        assert!(pk.starts_with("L") || pk.starts_with("K") || pk.starts_with("5"));
+        assert!(j[0]["address"].as_str().unwrap().starts_with("zs"));
+        assert!(j[0]["private_key"].as_str().unwrap().starts_with("secret-extended-key-main"));
+        assert_eq!(j[0]["seed"]["path"].as_str().unwrap(), "m/32'/133'/0'");
 
-        assert!(j[1]["address"].as_str().unwrap().starts_with("zs"));
-        assert!(j[1]["private_key"].as_str().unwrap().starts_with("secret-extended-key-main"));
-        assert_eq!(j[1]["seed"]["path"].as_str().unwrap(), "m/32'/133'/0'");
+        assert!(j[1]["address"].as_str().unwrap().starts_with("t1"));
+        let pk = j[1]["private_key"].as_str().unwrap();
+        assert!(pk.starts_with("L") || pk.starts_with("K") || pk.starts_with("5"));
 
         // Check if all the addresses are the same
         let w = generate_wallet(true, false, 3, 3, &[]);
