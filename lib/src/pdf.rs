@@ -12,7 +12,7 @@ use printpdf::*;
 /**
  * Save the list of wallets (address + private keys) to the given PDF file name.
  */
-pub fn save_to_pdf(addresses: &str, filename: &str) {
+pub fn save_to_pdf(addresses: &str, filename: &str) -> Result<(), String> {
     let (doc, page1, layer1) = PdfDocument::new("Zec Sapling Paper Wallet", Mm(210.0), Mm(297.0), "Layer 1");
 
     let font  = doc.add_builtin_font(BuiltinFont::Courier).unwrap();
@@ -78,7 +78,21 @@ pub fn save_to_pdf(addresses: &str, filename: &str) {
         pos = pos + 1;        
     };
     
-    doc.save(&mut BufWriter::new(File::create(filename).unwrap())).unwrap();
+    let file = match File::create(filename) {
+        Ok(f)  => f,
+        Err(e) => {            
+            return Err(format!("Couldn't open {} for writing. Aborting. {}", filename, e));
+        }
+    };
+
+    match doc.save(&mut BufWriter::new(file)) {
+        Ok(_)   => (),
+        Err(e)  => {
+            return Err(format!("Couldn't save {}. Aborting. {}", filename, e));
+        }
+    };
+
+    return Ok(());
 }
 
 /**
