@@ -39,10 +39,38 @@ fn double_sha256(payload: &[u8]) -> Vec<u8> {
     h2.to_vec()
 }
 
+/// Parameters used to generate addresses and private keys. Look in chainparams.cpp (in zcashd/src)
+/// to get these values. 
+/// Usually these will be different for testnet and for mainnet.
+struct CoinParams {
+    taddress_version: [u8; 2],
+    tsecret_prefix  : [u8; 1],
+    zaddress_prefix : String,
+    zsecret_prefix  : String,
+    cointype        : u32,
+}
 
-/**
- * Generate a series of `count` addresses and private keys. 
- */
+fn params(testnet: bool) -> CoinParams {
+    if testnet {
+        CoinParams {
+            taddress_version : [0x1D, 0x25],
+            tsecret_prefix   : [0xEF],
+            zaddress_prefix  : "ztestsapling".to_string(),
+            zsecret_prefix   : "secret-extended-key-test".to_string(),
+            cointype         : 1
+        }
+    } else {
+        CoinParams {
+            taddress_version : [0x1C, 0xB8],
+            tsecret_prefix   : [0x80],
+            zaddress_prefix  : "zs".to_string(),
+            zsecret_prefix   : "secret-extended-key-main".to_string(),
+            cointype         : 133
+        }
+    }
+}
+
+/// Generate a series of `count` addresses and private keys. 
 pub fn generate_wallet(testnet: bool, nohd: bool, zcount: u32, tcount: u32, user_entropy: &[u8]) -> String {        
     // Get 32 bytes of system entropy
     let mut system_entropy:[u8; 32] = [0; 32]; 
@@ -79,17 +107,14 @@ pub fn generate_wallet(testnet: bool, nohd: bool, zcount: u32, tcount: u32, user
     }    
 }
 
-/**
- * Generate `count` addresses with the given seed. The addresses are derived from m/32'/cointype'/index' where 
- * index is 0..count
- * 
- * Note that cointype is 1 for testnet and 133 for mainnet
- * 
- * get_seed is a closure that will take the address number being derived, and return a tuple cointaining the 
- * seed and child number to use to derive this wallet. 
- *
- * It is useful if we want to reuse (or not) the seed across multiple wallets.
- */
+/// Generate `count` addresses with the given seed. The addresses are derived from m/32'/cointype'/index' where 
+/// index is 0..count
+/// 
+/// Note that cointype is 1 for testnet and 133 for mainnet
+/// 
+/// get_seed is a closure that will take the address number being derived, and return a tuple cointaining the 
+/// seed and child number to use to derive this wallet. 
+/// It is useful if we want to reuse (or not) the seed across multiple wallets.
 fn gen_addresses_with_seed_as_json<F>(testnet: bool, zcount: u32, tcount: u32, mut get_seed: F) -> String 
     where F: FnMut(u32) -> (Vec<u8>, u32)
 {
@@ -131,11 +156,8 @@ fn gen_addresses_with_seed_as_json<F>(testnet: bool, zcount: u32, tcount: u32, m
     return json::stringify_pretty(ans, 2);
 }
 
-// Generate a t address
+/// Generate a t address
 fn get_taddress(testnet: bool, mut rng: &mut ChaChaRng) -> (String, String) {
-    let addr_version  = if testnet {&[0x1D, 0x25]} else {&[0x1C,0xB8]};
-    let secret_prefix = if testnet {&[0xEF]}       else {&[0x80]};
-
     // SECP256k1 context
     let ctx = secp256k1::Secp256k1::default();
 
@@ -144,32 +166,28 @@ fn get_taddress(testnet: bool, mut rng: &mut ChaChaRng) -> (String, String) {
     // Address 
     let mut hash160 = Ripemd160::new();
     hash160.input(sha2::Sha256::digest(&pubkey.serialize().to_vec()));
-    let addr = hash160.result().to_base58check(addr_version, &[]);
+    let addr = hash160.result().to_base58check(&params(testnet).taddress_version, &[]);
 
     // Private Key
     let sk_bytes: &[u8] = &sk[..];
-    let pk_wif = sk_bytes.to_base58check(secret_prefix, &[0x01]);  
+    let pk_wif = sk_bytes.to_base58check(&params(testnet).tsecret_prefix, &[0x01]);  
 
     return (addr, pk_wif);
 }
 
-// Generate a standard ZIP-32 address from the given seed at 32'/44'/0'/index
+/// Generate a standard ZIP-32 address from the given seed at 32'/44'/0'/index
 fn get_zaddress(testnet: bool, seed: &[u8], index: u32) -> (String, String, json::JsonValue) {
-    let addr_prefix = if testnet {"ztestsapling"} else {"zs"};
-    let pk_prefix   = if testnet {"secret-extended-key-test"} else {"secret-extended-key-main"};
-    let cointype    = if testnet {1} else {133};
-    
-    let spk: ExtendedSpendingKey = ExtendedSpendingKey::from_path(
+   let spk: ExtendedSpendingKey = ExtendedSpendingKey::from_path(
             &ExtendedSpendingKey::master(seed),
             &[
                 ChildIndex::Hardened(32),
-                ChildIndex::Hardened(cointype),
+                ChildIndex::Hardened(params(testnet).cointype),
                 ChildIndex::Hardened(index)
             ],
         );
     let path = object!{
         "HDSeed"    => hex::encode(seed),
-        "path"      => format!("m/32'/{}'/{}'", cointype, index)
+        "path"      => format!("m/32'/{}'/{}'", params(testnet).cointype, index)
     };
 
     let (_d, addr) = spk.default_address().expect("Cannot get result");
@@ -179,13 +197,13 @@ fn get_zaddress(testnet: bool, seed: &[u8], index: u32) -> (String, String, json
     v.get_mut(..11).unwrap().copy_from_slice(&addr.diversifier.0);
     addr.pk_d.write(v.get_mut(11..).unwrap()).expect("Cannot write!");
     let checked_data: Vec<u5> = v.to_base32();
-    let encoded = Bech32::new(addr_prefix.into(), checked_data).expect("bech32 failed").to_string();
+    let encoded = Bech32::new(params(testnet).zaddress_prefix.into(), checked_data).expect("bech32 failed").to_string();
 
     // Private Key is encoded as bech32 string
     let mut vp = Vec::new();
     spk.write(&mut vp).expect("Can't write private key");
     let c_d: Vec<u5> = vp.to_base32();
-    let encoded_pk = Bech32::new(pk_prefix.into(), c_d).expect("bech32 failed").to_string();
+    let encoded_pk = Bech32::new(params(testnet).zsecret_prefix.into(), c_d).expect("bech32 failed").to_string();
 
     return (encoded.to_string(), encoded_pk.to_string(), path);
 }
@@ -199,9 +217,7 @@ fn get_zaddress(testnet: bool, seed: &[u8], index: u32) -> (String, String, json
 #[cfg(test)]
 mod tests {
     
-    /**
-     * Test the wallet generation and that it is generating the right number and type of addresses
-     */
+    /// Test the wallet generation and that it is generating the right number and type of addresses
     #[test]
     fn test_wallet_generation() {
         use crate::paper::generate_wallet;
@@ -294,9 +310,8 @@ mod tests {
         assert_eq!(set1.len(), 12);
     }
 
-    /**
-     * Test nohd address generation, which does not use the same sed.
-     */
+    
+    /// Test nohd address generation, which does not use the same sed.
     #[test]
     fn test_nohd() {
         use crate::paper::generate_wallet;
@@ -325,7 +340,7 @@ mod tests {
         assert_eq!(set2.len(), 3);
     }
 
-    // Test the address derivation against the test data (see below)
+    /// Test the address derivation against the test data (see below)
     fn test_address_derivation(testdata: &str, testnet: bool) {
         use crate::paper::gen_addresses_with_seed_as_json;
         let td = json::parse(&testdata.replace("'", "\"")).unwrap();
@@ -391,44 +406,40 @@ mod tests {
     }
     
 
-    /*
-        Test data was derived from zcashd. It cointains 20 sets of seeds, and for each seed, it contains 5 accounts that are derived for the testnet and mainnet. 
-        We'll use the same seed and derive the same set of addresses here, and then make sure that both the address and private key matches up.
-
-        To derive the test data, add something like this in test_wallet.cpp and run with
-        ./src/zcash-gtest --gtest_filter=WalletTests.*
-
-    ```
-        void print_wallet(std::string seed, std::string pk, std::string addr, int num) {
-            std::cout << "{'seed': '" << seed << "', 'pk': '" << pk << "', 'addr': '" << addr << "', 'num': " << num << "}," << std::endl;
-        }
-
-        void gen_addresses() {
-            for (int i=0; i < 20; i++) {
-                HDSeed seed = HDSeed::Random();
-                for (int j=0; j < 5; j++) {
-                    auto m = libzcash::SaplingExtendedSpendingKey::Master(seed);
-                    auto xsk = m.Derive(32 | ZIP32_HARDENED_KEY_LIMIT)
-                                .Derive(Params().BIP44CoinType() | ZIP32_HARDENED_KEY_LIMIT)
-                                .Derive(j | ZIP32_HARDENED_KEY_LIMIT);
-
-                    auto rawSeed = seed.RawSeed();
-                    print_wallet(HexStr(rawSeed.begin(), rawSeed.end()), 
-                                EncodeSpendingKey(xsk), EncodePaymentAddress(xsk.DefaultAddress()), j);
-                }
-            }
-        }
-
-        TEST(WalletTests, SaplingAddressTest) {
-            SelectParams(CBaseChainParams::TESTNET);
-            gen_addresses();
-            
-            SelectParams(CBaseChainParams::MAIN);
-            gen_addresses();
-        }
-    ```
-    */
-
+    
+    ///    Test data was derived from zcashd. It cointains 20 sets of seeds, and for each seed, it contains 5 accounts that are derived for the testnet and mainnet. 
+    ///    We'll use the same seed and derive the same set of addresses here, and then make sure that both the address and private key matches up.
+    ///    To derive the test data, add something like this in test_wallet.cpp and run with
+    ///    ./src/zcash-gtest --gtest_filter=WalletTests.*
+    ///    
+    ///    ```
+    ///    void print_wallet(std::string seed, std::string pk, std::string addr, int num) {
+    ///        std::cout << "{'seed': '" << seed << "', 'pk': '" << pk << "', 'addr': '" << addr << "', 'num': " << num << "}," << std::endl;
+    ///    }
+    /// 
+    ///    void gen_addresses() {
+    ///        for (int i=0; i < 20; i++) {
+    ///            HDSeed seed = HDSeed::Random();
+    ///            for (int j=0; j < 5; j++) {
+    ///                auto m = libzcash::SaplingExtendedSpendingKey::Master(seed);
+    ///                auto xsk = m.Derive(32 | ZIP32_HARDENED_KEY_LIMIT)
+    ///                            .Derive(Params().BIP44CoinType() | ZIP32_HARDENED_KEY_LIMIT)
+    ///                            .Derive(j | ZIP32_HARDENED_KEY_LIMIT);
+    ///                auto rawSeed = seed.RawSeed();
+    ///                print_wallet(HexStr(rawSeed.begin(), rawSeed.end()), 
+    ///                            EncodeSpendingKey(xsk), EncodePaymentAddress(xsk.DefaultAddress()), j);
+    ///            }
+    ///        }
+    ///    }
+    /// 
+    ///    TEST(WalletTests, SaplingAddressTest) {
+    ///        SelectParams(CBaseChainParams::TESTNET);
+    ///        gen_addresses();
+    ///        
+    ///        SelectParams(CBaseChainParams::MAIN);
+    ///        gen_addresses();
+    ///    }
+    ///    ```
     #[test]
     fn test_address_derivation_testnet() {
         let testdata = "[
