@@ -62,6 +62,16 @@ fn main() {
     
     let nohd: bool    = matches.is_present("nohd");
 
+    // Get the filename and output format
+    let filename = matches.value_of("output");
+    let format   = matches.value_of("format").unwrap();
+
+    // Writing to PDF requires a filename
+    if format == "pdf" && filename.is_none() {
+        eprintln!("Need an output file name when writing to PDF");
+        return;
+    }
+
     // Get user entropy. 
     let mut entropy: Vec<u8> = Vec::new();
     // If the user hasn't specified any, read from the stdin
