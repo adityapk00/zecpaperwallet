@@ -20,7 +20,7 @@ pub extern fn rust_generate_wallet(testnet: bool, count: u32, entropy: *const c_
 }
 
 /**
- * Callers that recieve string return values from other functions should call this to return the string 
+ * Callers that receive string return values from other functions should call this to return the string 
  * back to rust, so it can be freed. Failure to call this function will result in a memory leak
  */ 
 #[no_mangle]

@@ -50,7 +50,7 @@ pub fn generate_wallet(testnet: bool, nohd: bool, count: u32, user_entropy: &[u8
  * 
  * Note that cointype is 1 for testnet and 133 for mainnet
  * 
- * get_seed is a closure that will take the address number being derived, and return a tuple cointaining the 
+ * get_seed is a closure that will take the address number being derived, and return a tuple containing the 
  * seed and child number to use to derive this wallet. 
  *
  * It is useful if we want to reuse (or not) the seed across multiple wallets.
@@ -217,7 +217,7 @@ mod tests {
     }
 
     /*
-        Test data was derived from zcashd. It cointains 20 sets of seeds, and for each seed, it contains 5 accounts that are derived for the testnet and mainnet. 
+        Test data was derived from zcashd. It contains 20 sets of seeds, and for each seed, it contains 5 accounts that are derived for the testnet and mainnet. 
         We'll use the same seed and derive the same set of addresses here, and then make sure that both the address and private key matches up.
 
         To derive the test data, add something like this in test_wallet.cpp and run with
