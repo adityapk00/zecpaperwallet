@@ -128,19 +128,7 @@ fn gen_addresses_with_seed_as_json<F>(testnet: bool, zcount: u32, tcount: u32, m
     // derive a RNG from the seed
     let mut rng = ChaChaRng::from_seed(rng_seed);
 
-    // First generate the t addresses
-    for i in 0..tcount {        
-        let (addr, pk_wif) = get_taddress(testnet, &mut rng);
-
-        ans.push(object!{
-            "num"               => i,
-            "address"           => addr,
-            "private_key"       => pk_wif,
-            "type"              => "taddr"
-        }).unwrap();
-    }
-
-    // Next generate the z addresses
+    // First generate the Z addresses
     for i in 0..zcount {
         let (seed, child) = get_seed(i);
         let (addr, pk, path) = get_zaddress(testnet, &seed, child);
@@ -152,6 +140,18 @@ fn gen_addresses_with_seed_as_json<F>(testnet: bool, zcount: u32, tcount: u32, m
                 "seed"          => path
         }).unwrap(); 
     }      
+
+    // Next generate the T addresses
+    for i in 0..tcount {        
+        let (addr, pk_wif) = get_taddress(testnet, &mut rng);
+
+        ans.push(object!{
+            "num"               => i,
+            "address"           => addr,
+            "private_key"       => pk_wif,
+            "type"              => "taddr"
+        }).unwrap();
+    }
 
     return json::stringify_pretty(ans, 2);
 }
