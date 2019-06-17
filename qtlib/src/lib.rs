@@ -8,14 +8,14 @@ use zecpaperlib::paper;
  * after using it to free it properly
  */ 
 #[no_mangle]
-pub extern fn rust_generate_wallet(testnet: bool, count: u32, entropy: *const c_char) -> *mut c_char {
+pub extern fn rust_generate_wallet(testnet: bool, zcount: u32, tcount: u32, entropy: *const c_char) -> *mut c_char {
     let entropy_str = unsafe {
         assert!(!entropy.is_null());
 
         CStr::from_ptr(entropy)
     };
 
-    let c_str = CString::new(paper::generate_wallet(testnet, false, count, entropy_str.to_bytes())).unwrap();
+    let c_str = CString::new(paper::generate_wallet(testnet, false, zcount, tcount, entropy_str.to_bytes())).unwrap();
     return c_str.into_raw();
 }
 
