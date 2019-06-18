@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include "precompiled.h"
 
 namespace Ui {
 class MainWindow;
@@ -16,7 +17,13 @@ public:
     ~MainWindow();
 
 private:
+    void populateWallets();
+
+    // The current JSON of the wallets.
+    QString currentWallets; 
+
     Ui::MainWindow *ui;
+    QIntValidator  *intValidator; 
 };
 
 #endif // MAINWINDOW_H

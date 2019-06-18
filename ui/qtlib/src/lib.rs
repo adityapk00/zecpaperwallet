@@ -1,6 +1,6 @@
 use libc::{c_char};
 use std::ffi::{CStr, CString};
-use zecpaperlib::paper;
+use zecpaperlib::{pdf, paper};
 
 /**
  * Call into rust to generate a paper wallet. Returns the paper wallet in JSON form. 
@@ -17,6 +17,30 @@ pub extern fn rust_generate_wallet(testnet: bool, zcount: u32, tcount: u32, entr
 
     let c_str = CString::new(paper::generate_wallet(testnet, false, zcount, tcount, entropy_str.to_bytes())).unwrap();
     return c_str.into_raw();
+}
+
+#[no_mangle]
+pub extern fn rust_save_as_pdf(json: *const c_char, file: *const c_char)-> bool {
+    let json_str = unsafe {
+        assert!(!json.is_null());
+
+        CStr::from_ptr(json)
+    };
+
+    let file_str = unsafe {
+        assert!(!file.is_null());
+
+        CStr::from_ptr(file)
+    };
+
+    match pdf::save_to_pdf(json_str.to_str().unwrap(), file_str.to_str().unwrap()) {
+        Ok(_)   => return true,
+        Err(e)  => {
+            eprintln!("{}", e);
+            return false;
+        }
+
+    }
 }
 
 /**
