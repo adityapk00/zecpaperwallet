@@ -1,6 +1,7 @@
 # zecpaperwallet
 zecpaperwallet is a Zcash Sapling paper wallet generator that can run completely offline. You can run it on an air-gapped computer to generate your shielded z-addresses, which will allow you to keep your keys completely offline. 
-![Paper Wallet](docs/paperwallet.png)
+
+![Paper Wallet](docs/paperwallet.png?raw=true)
 
 # Download
 zecpaperwallet is available as pre-built binaries from our [release page](https://github.com/adityapk00/zecpaperwallet/releases). Download the zip file for your platform, extract it and run the `./zecpaperwallet` binary. 
