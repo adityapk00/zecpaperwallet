@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "precompiled.h"
 
 #include "mainwindow.h"
@@ -48,6 +50,9 @@ QString Generate(int zaddrs, int taddrs, QString entropy) {
     // Call into rust to get the addresses
     char* wallet = rust_generate_wallet(false, zaddrs, taddrs, entropy.toStdString().c_str());
     QString walletJson(wallet);
+    
+    // We'll overwrite the privatekeys for safety before sending it back to rust
+    std::memset(wallet, 0, strlen(wallet)); 
     rust_free_string(wallet);
 
     return walletJson;
