@@ -61,8 +61,11 @@ FORMS += \
 INCLUDEPATH += $$PWD/qtlib/src
 DEPENDPATH  += $$PWD/qtlib/src
 
-librust.target   = $$PWD/qtlib/target/release/libzecpaperrust.a
-librust.commands = $(MAKE) -C $$PWD/qtlib 
+unix:        librust.target   = $$PWD/qtlib/target/release/libzecpaperrust.a
+else:win32:  librust.target   = $$PWD/qtlib/target/x86_64-pc-windows-gnu/release/zecpaperrust.lib
+
+unix:        librust.commands = $(MAKE) -C $$PWD/qtlib 
+else:win32:  librust.commands = $(MAKE) -C $$PWD/qtlib winrelease
 
 librustclean.commands = "rm -rf $$PWD/qtlib/target"
 distclean.depends += librustclean
@@ -77,10 +80,8 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 
-win32: LIBS += -L$$PWD/qtlib/target/release -lzecpaperrust
+win32: LIBS += -L$$PWD/qtlib/target/x86_64-pc-windows-gnu/release -lzecpaperrust
 else:unix: LIBS += -L$$PWD/qtlib/target/release -lzecpaperrust -ldl
 
-
-win32-g++: PRE_TARGETDEPS += $$PWD/qtlib/target/release/libzecpaperrust.a
-else:win32:!win32-g++: PRE_TARGETDEPS += $$PWD/qtlib/target/release/libzecpaperrust.lib
+win32: PRE_TARGETDEPS += $$PWD/qtlib/target/x86_64-pc-windows-gnu/release/zecpaperrust.lib
 else:unix::PRE_TARGETDEPS += $$PWD/qtlib/target/release/libzecpaperrust.a
