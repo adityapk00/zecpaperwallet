@@ -17,6 +17,11 @@ public:
     ~MainWindow();
 
 private:
+    void SaveAsPDFButton();
+    void SaveAsJSONButton();
+
+
+    void closeEvent(QCloseEvent*);
     void populateWallets();
 
     // The current JSON of the wallets.

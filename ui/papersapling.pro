@@ -4,11 +4,11 @@
 #
 #-------------------------------------------------
 
-QT       += core gui printsupport
+QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-TARGET = papersapling
+TARGET = zecpaperwalletui
 TEMPLATE = app
 
 MOC_DIR = bin
@@ -40,8 +40,7 @@ SOURCES += \
         src/qrcodelabel.cpp \
         src/qrcode/BitBuffer.cpp \
         src/qrcode/QrCode.cpp \
-        src/qrcode/QrSegment.cpp \
-        src/ellidedlabel.cpp
+        src/qrcode/QrSegment.cpp 
 
 HEADERS += \
         src/mainwindow.h \
@@ -50,10 +49,10 @@ HEADERS += \
         src/qrcode/BitBuffer.hpp \
         src/qrcode/QrCode.hpp \
         src/qrcode/QrSegment.hpp \
-        src/ellidedlabel.h \
         qtlib/src/zecpaperrust.h
 
 FORMS += \
+        src/about.ui \
         src/mainwindow.ui \
         src/wallet.ui
 

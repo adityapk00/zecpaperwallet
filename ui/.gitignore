@@ -5,7 +5,8 @@ Makefile
 Makefile.Debug
 Makefile.Release
 .qmake.stash
-papersapling
-papersapling_plugin_import.cpp
-papersapling.pro.user
+zecpaperwalletui
+zecpaperwalletui_plugin_import.cpp
+zecpaperwalletui.pro.user
 .vscode/
+ui*.h

@@ -13,7 +13,6 @@
 #include <QRandomGenerator>
 #endif
 
-#include <QPrinter>
 #include <QFontDatabase>
 #include <QAbstractTableModel>
 #include <QTranslator>
