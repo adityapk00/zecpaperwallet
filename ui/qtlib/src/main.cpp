@@ -6,7 +6,7 @@
 using namespace std;
 
 int main() {
-  char * from_rust = rust_generate_wallet(true, 1);
+  char * from_rust = rust_generate_wallet(true, 1, 1, "user-provided-entropy");
   auto stri = string(from_rust);
   rust_free_string(from_rust);
   

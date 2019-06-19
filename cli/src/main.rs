@@ -12,7 +12,6 @@ fn main() {
        .version("1.0")
        .about("A command line Zcash Sapling paper wallet generator")
        .arg(Arg::with_name("testnet")
-                .short("t")
                 .long("testnet")
                 .help("Generate Testnet addresses"))
         .arg(Arg::with_name("format")
@@ -32,10 +31,25 @@ fn main() {
                 .long("output")
                 .index(1)
                 .help("Name of output file."))
+        .arg(Arg::with_name("entropy")
+                .short("e")
+                .long("entropy")
+                .takes_value(true)
+                .help("Provide additional entropy to the random number generator. Any random string, containing 32-64 characters"))
+        .arg(Arg::with_name("t_addresses")
+                .short("t")
+                .long("taddrs")
+                .help("Numbe rof T addresses to generate")
+                .takes_value(true)
+                .default_value("0")
+                .validator(|i:String| match i.parse::<i32>() {
+                        Ok(_)   => return Ok(()),
+                        Err(_)  => return Err(format!("Number of addresses '{}' is not a number", i))
+                }))
         .arg(Arg::with_name("z_addresses")
                 .short("z")
-                .long("z_addresses")
-                .help("Number of Z addresses (sapling) to generate")
+                .long("zaddrs")
+                .help("Number of Z addresses (Sapling) to generate")
                 .takes_value(true)
                 .default_value("1")                
                 .validator(|i:String| match i.parse::<i32>() {
@@ -48,6 +62,7 @@ fn main() {
     
     let nohd: bool    = matches.is_present("nohd");
 
+    // Get the filename and output format
     let filename = matches.value_of("output");
     let format   = matches.value_of("format").unwrap();
 
@@ -57,11 +72,41 @@ fn main() {
         return;
     }
 
-    let num_addresses = matches.value_of("z_addresses").unwrap().parse::<u32>().unwrap();
+    // Get user entropy. 
+    let mut entropy: Vec<u8> = Vec::new();
+    // If the user hasn't specified any, read from the stdin
+    if matches.value_of("entropy").is_none() {
+        // Read from stdin
+        println!("Provide additional entropy for generating random numbers. Type in a string of random characters, press [ENTER] when done");
+        let mut buffer = String::new();
+        let stdin = io::stdin();
+        stdin.lock().read_line(&mut buffer).unwrap();
 
-    print!("Generating {} Sapling addresses.........", num_addresses);
+        entropy.extend_from_slice(buffer.as_bytes());
+    } else {
+        // Use provided entropy. 
+        entropy.extend(matches.value_of("entropy").unwrap().as_bytes());
+    }
+
+    // Get the filename and output format
+    let filename = matches.value_of("output");
+    let format   = matches.value_of("format").unwrap();
+
+    // Writing to PDF requires a filename
+    if format == "pdf" && filename.is_none() {
+        eprintln!("Need an output file name when writing to PDF");
+        return;
+    }
+
+    // Number of t addresses to generate
+    let t_addresses = matches.value_of("t_addresses").unwrap().parse::<u32>().unwrap();    
+
+    // Number of z addresses to generate
+    let z_addresses = matches.value_of("z_addresses").unwrap().parse::<u32>().unwrap();    
+
+    print!("Generating {} Sapling addresses and {} Transparent addresses...", z_addresses, t_addresses);
     io::stdout().flush().ok();
-    let addresses = generate_wallet(testnet, nohd, num_addresses); 
+    let addresses = generate_wallet(testnet, nohd, z_addresses, t_addresses, &entropy); 
     println!("[OK]");
     
     // If the default format is present, write to the console if the filename is absent
@@ -76,7 +121,12 @@ fn main() {
         // We already know the output file name was specified
         print!("Writing {:?} as a PDF file...", filename.unwrap());
         io::stdout().flush().ok();
-        pdf::save_to_pdf(&addresses, filename.unwrap());
-        println!("[OK]");
+        match pdf::save_to_pdf(&addresses, filename.unwrap()) {
+            Ok(_)   => { println!("[OK]");},
+            Err(e)  => {
+                eprintln!("[ERROR]");
+                eprintln!("{}", e);
+            }
+        };       
     }    
 }

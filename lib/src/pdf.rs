@@ -12,7 +12,7 @@ use printpdf::*;
 /**
  * Save the list of wallets (address + private keys) to the given PDF file name.
  */
-pub fn save_to_pdf(addresses: &str, filename: &str) {
+pub fn save_to_pdf(addresses: &str, filename: &str) -> Result<(), String> {
     let (doc, page1, layer1) = PdfDocument::new("Zec Sapling Paper Wallet", Mm(210.0), Mm(297.0), "Layer 1");
 
     let font  = doc.add_builtin_font(BuiltinFont::Courier).unwrap();
@@ -39,11 +39,19 @@ pub fn save_to_pdf(addresses: &str, filename: &str) {
             current_layer = doc.get_page(page2).add_layer("Layer 3");
         }
 
-        // Add address + private key
-        add_address_to_page(&current_layer, &font, &font_bold, kv["address"].as_str().unwrap(), pos);
-        add_pk_to_page(&current_layer, &font, &font_bold, kv["private_key"].as_str().unwrap(), kv["seed"]["HDSeed"].as_str().unwrap(), kv["seed"]["path"].as_str().unwrap(), pos);
+        let address = kv["address"].as_str().unwrap();
+        let pk      = kv["private_key"].as_str().unwrap();
 
-        // Is the shape stroked? Is the shape closed? Is the shape filled?
+        let (seed, hdpath, is_taddr) = if kv["type"].as_str().unwrap() == "zaddr" {
+            (kv["seed"]["HDSeed"].as_str().unwrap(), kv["seed"]["path"].as_str().unwrap(), false)
+        } else {
+            ("", "", true)
+        };
+        
+        // Add address + private key
+        add_address_to_page(&current_layer, &font, &font_bold, address, is_taddr, pos);
+        add_pk_to_page(&current_layer, &font, &font_bold, pk, address, is_taddr, seed, hdpath, pos);
+ 
         let line1 = Line {
             points: vec![(Point::new(Mm(5.0), Mm(160.0)), false), (Point::new(Mm(205.0), Mm(160.0)), false)],
             is_closed: true,
@@ -70,7 +78,21 @@ pub fn save_to_pdf(addresses: &str, filename: &str) {
         pos = pos + 1;        
     };
     
-    doc.save(&mut BufWriter::new(File::create(filename).unwrap())).unwrap();
+    let file = match File::create(filename) {
+        Ok(f)  => f,
+        Err(e) => {            
+            return Err(format!("Couldn't open {} for writing. Aborting. {}", filename, e));
+        }
+    };
+
+    match doc.save(&mut BufWriter::new(file)) {
+        Ok(_)   => (),
+        Err(e)  => {
+            return Err(format!("Couldn't save {}. Aborting. {}", filename, e));
+        }
+    };
+
+    return Ok(());
 }
 
 /**
@@ -112,45 +134,83 @@ fn add_footer_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef,
 /**
  * Add the address section to the PDF at `pos`. Note that each page can fit only 2 wallets, so pos has to effectively be either 0 or 1.
  */
-fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, address: &str, pos: u32) {
-    let (scaledimg, finalsize) = qrcode_scaled(address, 10);
+fn add_address_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, address: &str, is_taddr: bool, pos: u32) {
+    let (scaledimg, finalsize) = qrcode_scaled(address, if is_taddr {13} else {10});
 
-    //         page_height  top_margin  vertical_padding  position       
-    let ypos = 297.0        - 5.0       - 50.0            - (140.0 * pos as f64);
-    add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(10.0), Mm(ypos));
+    //         page_height  top_margin  vertical_padding  position               
+    let ypos = 297.0        - 5.0       - 35.0            - (140.0 * pos as f64);
+    let title = if is_taddr {"T Address"} else {"ZEC Address (Sapling)"};
 
-    current_layer.use_text("ZEC Address (Sapling)", 14, Mm(55.0), Mm(ypos+27.5), &font_bold);
-    let strs = split_to_max(&address, 39, 6);
+    add_address_at(current_layer, font, font_bold, title, address, &scaledimg, finalsize, ypos);
+}
+
+fn add_address_at(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, title: &str, address: &str, qrcode: &Vec<u8>, finalsize: usize, ypos: f64) {
+    add_qrcode_image_to_page(current_layer, qrcode, finalsize, Mm(10.0), Mm(ypos));
+    current_layer.use_text(title, 14, Mm(55.0), Mm(ypos+27.5), &font_bold);
+    
+    let strs = split_to_max(&address, 39, 39);  // No spaces, so user can copy the address
     for i in 0..strs.len() {
-        current_layer.use_text(strs[i].clone(), 12, Mm(55.0), Mm(ypos+15.0-((i*5) as f64)), &font);
+        current_layer.use_text(strs[i].clone(), 12, Mm(55.0), Mm(ypos+20.0-((i*5) as f64)), &font);
     }
 }
 
 /**
  * Add the private key section to the PDF at `pos`, which can effectively be only 0 or 1.
  */
-fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, pk: &str, seed: &str, path: &str, pos: u32) {
-    let (scaledimg, finalsize) = qrcode_scaled(pk, 10);
+fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, font_bold: &IndirectFontRef, pk: &str, address: &str, is_taddr: bool, seed: &str, path: &str, pos: u32) {
+    //         page_height  top_margin  vertical_padding  position               
+    let ypos = 297.0        - 5.0       - 90.0           - (140.0 * pos as f64);
+    
+    let line1 = Line {
+            points: vec![(Point::new(Mm(5.0), Mm(ypos + 50.0)), false), (Point::new(Mm(205.0), Mm(ypos + 50.0)), false)],
+            is_closed: true,
+            has_fill: false,
+            has_stroke: true,
+            is_clipping_path: false,
+        };
 
-    //         page_height  top_margin  vertical_padding  position       
-    let ypos = 297.0        - 5.0       - 100.0           - (140.0 * pos as f64);    
-    add_qrcode_image_to_page(current_layer, scaledimg, finalsize, Mm(145.0), Mm(ypos-17.5));
+    let outline_color = printpdf::Color::Rgb(Rgb::new(0.0, 0.0, 0.0, None));
 
-    current_layer.use_text("Private Key", 14, Mm(10.0), Mm(ypos+32.5), &font_bold);
-    let strs = split_to_max(&pk, 45, 10);
+    current_layer.set_outline_color(outline_color);
+    let mut dash_pattern = LineDashPattern::default();
+    dash_pattern.dash_1 = Some(5);
+    current_layer.set_line_dash_pattern(dash_pattern);
+    current_layer.set_outline_thickness(1.0);
+
+    // Draw first line
+    current_layer.add_shape(line1);
+
+    // Reset the dashed line pattern
+    current_layer.set_line_dash_pattern(LineDashPattern::default());
+
+    let (scaledimg, finalsize) = qrcode_scaled(pk, if is_taddr {20} else {10});
+
+    add_qrcode_image_to_page(current_layer, &scaledimg, finalsize, Mm(145.0), Mm(ypos-17.5));
+
+    current_layer.use_text("Private Key", 14, Mm(10.0), Mm(ypos+37.5), &font_bold);
+    let strs = split_to_max(&pk, 45, 45);   // No spaces, so user can copy the private key
     for i in 0..strs.len() {
-        current_layer.use_text(strs[i].clone(), 12, Mm(10.0), Mm(ypos+25.0-((i*5) as f64)), &font);
+        current_layer.use_text(strs[i].clone(), 12, Mm(10.0), Mm(ypos+32.5-((i*5) as f64)), &font);
+    }
+
+    // Add the address a second time below the private key
+    let title = if is_taddr {"T Address"} else {"ZEC Address (Sapling)"};
+    current_layer.use_text(title, 12, Mm(10.0), Mm(ypos-10.0), &font_bold);    
+    let strs = split_to_max(&address, 39, 39);  // No spaces, so user can copy the address
+    for i in 0..strs.len() {
+        current_layer.use_text(strs[i].clone(), 12, Mm(10.0), Mm(ypos-15.0-((i*5) as f64)), &font);
     }
 
     // And add the seed too. 
-
-    current_layer.use_text(format!("HDSeed: {}, Path: {}", seed, path).as_str(), 8, Mm(10.0), Mm(ypos-25.0), &font);
+    if !is_taddr {
+        current_layer.use_text(format!("HDSeed: {}, Path: {}", seed, path).as_str(), 8, Mm(10.0), Mm(ypos-35.0), &font);
+    }
 }
 
 /**
  * Insert the given QRCode into the PDF at the given x,y co-ordinates. The qr code is a vector of RGB values. 
  */
-fn add_qrcode_image_to_page(current_layer: &PdfLayerReference, qr: Vec<u8>, qrsize: usize, x: Mm, y: Mm) {
+fn add_qrcode_image_to_page(current_layer: &PdfLayerReference, qr: &Vec<u8>, qrsize: usize, x: Mm, y: Mm) {
     // you can also construct images manually from your data:
     let image_file_2 = ImageXObject {
             width: Px(qrsize),
@@ -161,7 +221,7 @@ fn add_qrcode_image_to_page(current_layer: &PdfLayerReference, qr: Vec<u8>, qrsi
             /* put your bytes here. Make sure the total number of bytes =
             width * height * (bytes per component * number of components)
             (e.g. 2 (bytes) x 3 (colors) for RGB 16bit) */
-            image_data: qr,
+            image_data: qr.to_vec(),
             image_filter: None, /* does not work yet */
             clipping_bbox: None, /* doesn't work either, untested */
     };
@@ -207,6 +267,58 @@ fn split_to_max(s: &str, max: usize, blocksize: usize) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn test_qrcode_scale() {
+        use array2d::Array2D;
+        use qrcode::QrCode;
+        use crate::pdf::qrcode_scaled;
+
+        let testdata = "This is some testdata";
+        let code = QrCode::new(testdata.as_bytes()).unwrap();
+        let width = code.width();
+
+        let factor  = 10;
+        let padding = 10;
+
+        let (scaled, size) = qrcode_scaled(testdata, factor);
+        let scaled_size = (width * factor)+(2*padding);
+
+        assert_eq!(size, scaled_size);
+
+        // 3 bytes per pixel
+        let scaled_qrcode = Array2D::from_row_major(&scaled, scaled_size, scaled_size*3); 
+
+        for i in 0..scaled_size {
+            for j in 0..scaled_size {                
+                // The padding should be white
+                if i < padding || i >= (width*factor) + padding ||
+                    j < padding || j >= (width*factor) + padding {
+                        for px in 0..3 {
+                            assert_eq!(scaled_qrcode[(i, j*3+px)], 255u8);
+                        }
+                } else {
+                    // Should match the QR code module
+                    let module_i = (i-padding)/factor;
+                    let module_j = (j-padding)/factor;
+                    
+                    // This should really be (i,j), but I think there's a bug in the qrcode
+                    // module that is returning it the other way.
+                    let color = if code[(module_j, module_i)] == qrcode::Color::Light {
+                        // Light color is white
+                        255u8
+                    } else {
+                        // Dark color is black
+                        0u8
+                    };
+
+                    for px in 0..3 {
+                        assert_eq!(scaled_qrcode[(i, j*3+px)], color);
+                    }
+                }
+            }
+        }
+    }
     
     #[test]
     fn test_split() {
@@ -218,11 +330,13 @@ mod tests {
         assert_eq!(split_to_max(addr, 44, 8).join("\n"), "ztestsap ling1w00 pdjthkzm zgut4c3y 7hu6q6c8 ferj\nczyvc03x wu0rvdgt re8a25em 5w3w6jxg hvcar5jz ehnn\n");
         assert_eq!(split_to_max(addr, 44, 8).join(" ").replace(" ", ""), addr);
         assert_eq!(split_to_max(addr, 42, 8).join(" ").replace(" ", ""), addr);
+        assert_eq!(split_to_max(addr, 39, 39).join(" ").replace(" ", ""), addr);
 
         // Test the PK splitting using max/blocksize we'll know we use
         let pk = "secret-extended-key-test1qj7vst8eqqqqqqpu2w6r0p2ykewm95h3d28k7r7y87e9p4v5zhzd4hj2y57clsprjveg997vqk7ak9tr2pnyyxmfzyzs6dhtuflt3aea9srp08teskpqfy2dtm07n08z3dyra407xumf3fk9ds4x06rzur7mgfyu39krj2g28lsxsxtv7swzu0j9vw4qf8rn5z72ztgeqj6u5zehylqm75c7d3um9ds9zvek4tdyta7qhln5fkc0dks6qwmkvr48fvgucpc3542kmdc97uqzt";
         assert_eq!(split_to_max(pk, 44, 8).join(" ").replace(" ", ""),  pk);
         assert_eq!(split_to_max(pk, 45, 10).join(" ").replace(" ", ""), pk);
+        assert_eq!(split_to_max(pk, 45, 45).join(" ").replace(" ", ""), pk);
 
         // Test random combinations of block size and spaces to ensure that 
         // the string is always preserved
