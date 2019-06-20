@@ -71,6 +71,7 @@ else:win32:  librust.commands = $(MAKE) -C $$PWD/qtlib winrelease
 librustclean.commands = "rm -rf $$PWD/qtlib/target"
 distclean.depends += librustclean
 
+QMAKE_INFO_PLIST = res/Info.plist
 
 QMAKE_EXTRA_TARGETS += librust librustclean distclean
 QMAKE_CLEAN += $$PWD/qtlib/target/release/libzecpaperrust.a
