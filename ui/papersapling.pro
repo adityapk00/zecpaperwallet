@@ -62,6 +62,10 @@ FORMS += \
 INCLUDEPATH += $$PWD/qtlib/src
 DEPENDPATH  += $$PWD/qtlib/src
 
+
+win32: RC_ICONS = res/icon.ico
+ICON = res/logo.icns
+
 unix:        librust.target   = $$PWD/qtlib/target/release/libzecpaperrust.a
 else:win32:  librust.target   = $$PWD/qtlib/target/x86_64-pc-windows-gnu/release/zecpaperrust.lib
 
