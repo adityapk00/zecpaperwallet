@@ -158,6 +158,10 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->txttaddrs->setValidator(intValidator);
     ui->txtzaddrs->setValidator(intValidator);
 
+    QString entropyTooltip = tr("Please type in random characters to use as entropy, which will be mixed in with the system's entropy to generate random numbers.");
+    ui->txtEntropy->setToolTip(entropyTooltip);
+    ui->lblEntropy->setToolTip(entropyTooltip);
+
     // Wire up the generate button
     QObject::connect(ui->btnGenerate, &QPushButton::clicked, [=]() {
         this->populateWallets();
