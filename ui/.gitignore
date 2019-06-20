@@ -6,7 +6,10 @@ Makefile.Debug
 Makefile.Release
 .qmake.stash
 zecpaperwalletui
+zecpaperwalletui.app/
 zecpaperwalletui_plugin_import.cpp
 zecpaperwalletui.pro.user
 .vscode/
 ui*.h
+*.swp
+artifacts/
