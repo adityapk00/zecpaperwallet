@@ -73,6 +73,7 @@ cd ../cli
 
 # Clean everything first
 cargo clean
+sed -i "s/APP_VERSION/$APP_VERSION/" src/main.rs
 
 # Compile for mac directly
 cargo build --release 
