@@ -74,7 +74,7 @@ cargo clean
 cargo build --release 
 
 # For Windows and Linux, build via docker
-docker run --rm -v $(pwd)/..:/opt/zecpaperwallet rust/zecpaperwallet:v0.2 bash -c "cd /opt/zecpaperwallet/cli && cargo build --release --artifacts x86_64-unknown-linux-musl && cargo build --release --artifacts x86_64-pc-windows-gnu && cargo build --release --artifacts aarch64-unknown-linux-gnu"
+docker run --rm -v $(pwd)/..:/opt/zecpaperwallet rust/zecpaperwallet:v0.2 bash -c "cd /opt/zecpaperwallet/cli && cargo build --release --target x86_64-unknown-linux-musl && cargo build --release --target x86_64-pc-windows-gnu && cargo build --release --target aarch64-unknown-linux-gnu"
 
 
 # Come back and package everything
@@ -84,10 +84,10 @@ cd ../ui
 #macOS
 cp ../cli/target/release/zecpaperwallet artifacts/macOS-zecpaperwallet-v$APP_VERSION/
 gpg --batch --output artifacts/macOS-zecpaperwallet-v$APP_VERSION/zecpaperwallet.sig --detach-sig artifacts/macOS-zecpaperwallet-v$APP_VERSION/zecpaperwallet 
-gpg --batch --output artifacts/macOS-zecpaperwallet-v$APP_VERSION/zecpaperwallet.sig --detach-sig artifacts/macOS-zecpaperwallet-v$APP_VERSION/zecpaperwallet.app 
+#gpg --batch --output artifacts/macOS-zecpaperwallet-v$APP_VERSION/zecpaperwallet.app.sig --detach-sig artifacts/macOS-zecpaperwallet-v$APP_VERSION/zecpaperwallet.app 
 cd artifacts
 cd macOS-zecpaperwallet-v$APP_VERSION
-gsha256sum zecpaperwallet zecpaperwalletui.app > sha256sum.txt
+gsha256sum zecpaperwallet > sha256sum.txt
 cd ..
 zip -r macOS-zecpaperwallet-v$APP_VERSION.zip macOS-zecpaperwallet-v$APP_VERSION 
 cd ..
@@ -96,6 +96,7 @@ cd ..
 #Linux
 cp ../cli/target/x86_64-unknown-linux-musl/release/zecpaperwallet artifacts/linux-zecpaperwallet-v$APP_VERSION/
 gpg --batch --output artifacts/linux-zecpaperwallet-v$APP_VERSION/zecpaperwallet.sig --detach-sig artifacts/linux-zecpaperwallet-v$APP_VERSION/zecpaperwallet
+gpg --batch --output artifacts/linux-zecpaperwallet-v$APP_VERSION/zecpaperwalletui.sig --detach-sig artifacts/linux-zecpaperwallet-v$APP_VERSION/zecpaperwalletui
 cd artifacts
 cd linux-zecpaperwallet-v$APP_VERSION
 gsha256sum zecpaperwallet zecpaperwalletui > sha256sum.txt
@@ -107,9 +108,10 @@ cd ..
 #Windows
 cp ../cli/target/x86_64-pc-windows-gnu/release/zecpaperwallet.exe artifacts/Windows-zecpaperwallet-v$APP_VERSION/
 gpg --batch --output artifacts/Windows-zecpaperwallet-v$APP_VERSION/zecpaperwallet.sig --detach-sig artifacts/Windows-zecpaperwallet-v$APP_VERSION/zecpaperwallet.exe
+gpg --batch --output artifacts/Windows-zecpaperwallet-v$APP_VERSION/zecpaperwalletui.sig --detach-sig artifacts/Windows-zecpaperwallet-v$APP_VERSION/zecpaperwalletui.exe
 cd artifacts
 cd Windows-zecpaperwallet-v$APP_VERSION
-gsha256sum zecpaperwallet.exe > sha256sum.txt
+gsha256sum zecpaperwallet.exe zecpaperwalletui.exe > sha256sum.txt
 cd ..
 zip -r Windows-zecpaperwallet-v$APP_VERSION.zip Windows-zecpaperwallet-v$APP_VERSION 
 cd ..
