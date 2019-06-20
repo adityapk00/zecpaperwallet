@@ -54,3 +54,5 @@ make -j4
 strip release/zecpaperwalletui.exe
 cp release/zecpaperwalletui.exe artifacts/Windows-zecpaperwallet-v$APP_VERSION
 
+# Cleanup before exiting
+make distclean

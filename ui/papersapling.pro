@@ -49,7 +49,9 @@ HEADERS += \
         src/qrcode/BitBuffer.hpp \
         src/qrcode/QrCode.hpp \
         src/qrcode/QrSegment.hpp \
-        qtlib/src/zecpaperrust.h
+        src/version.h \
+        qtlib/src/zecpaperrust.h 
+
 
 FORMS += \
         src/about.ui \

@@ -21,7 +21,7 @@ void QRCodeLabel::resizeEvent(QResizeEvent*)
 
 QPixmap QRCodeLabel::scaledPixmap() const {
     QPixmap pm(size());
-    pm.fill(Qt::white);
+    pm.fill(Qt::transparent);
     QPainter painter(&pm);
     
     qrcodegen::QrCode qr = qrcodegen::QrCode::encodeText(str.toUtf8().constData(), qrcodegen::QrCode::Ecc::LOW);

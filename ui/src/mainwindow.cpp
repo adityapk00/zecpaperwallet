@@ -3,6 +3,7 @@
 #include "precompiled.h"
 
 #include "mainwindow.h"
+#include "version.h"
 #include "ui_mainwindow.h"
 #include "ui_wallet.h"
 #include "ui_about.h"
@@ -163,7 +164,7 @@ MainWindow::MainWindow(QWidget *parent) :
         QDialog ad(this);
         Ui_AboutDialog d;
         d.setupUi(&ad);
-
+        d.lblVersion->setText(QString("zecpaperwallet ") + APP_VERSION + "(" + APP_BUILD_DATE + ")");
         SaveRestore(&ad);
 
         ad.exec();

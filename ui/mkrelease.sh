@@ -76,7 +76,6 @@ cargo build --release
 # For Windows and Linux, build via docker
 docker run --rm -v $(pwd)/..:/opt/zecpaperwallet rust/zecpaperwallet:v0.2 bash -c "cd /opt/zecpaperwallet/cli && cargo build --release --target x86_64-unknown-linux-musl && cargo build --release --target x86_64-pc-windows-gnu && cargo build --release --target aarch64-unknown-linux-gnu"
 
-
 # Come back and package everything
 cd ../ui
 

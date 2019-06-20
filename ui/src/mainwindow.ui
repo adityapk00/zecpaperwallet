@@ -110,6 +110,9 @@
       <property name="styleSheet">
        <string notr="true"/>
       </property>
+      <property name="sizeAdjustPolicy">
+       <enum>QAbstractScrollArea::AdjustToContents</enum>
+      </property>
       <property name="widgetResizable">
        <bool>true</bool>
       </property>
@@ -118,8 +121,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>889</width>
-         <height>428</height>
+         <width>907</width>
+         <height>654</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout"/>
@@ -134,7 +137,7 @@
      <x>0</x>
      <y>0</y>
      <width>927</width>
-     <height>39</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
