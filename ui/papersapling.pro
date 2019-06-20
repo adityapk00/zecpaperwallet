@@ -80,6 +80,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 
 win32: LIBS += -L$$PWD/qtlib/target/x86_64-pc-windows-gnu/release -lzecpaperrust
+else:macx: LIBS += -L$$PWD/qtlib/target/release -lzecpaperrust -framework Security -framework Foundation
 else:unix: LIBS += -L$$PWD/qtlib/target/release -lzecpaperrust -ldl
 
 win32: PRE_TARGETDEPS += $$PWD/qtlib/target/x86_64-pc-windows-gnu/release/zecpaperrust.lib
