@@ -1,6 +1,8 @@
 extern crate clap;
 extern crate zecpaperlib;
 
+mod version;
+
 use clap::{Arg, App};
 use zecpaperlib::paper::*;
 use zecpaperlib::pdf;
@@ -9,7 +11,7 @@ use std::io::prelude::*;
 
 fn main() { 
     let matches = App::new("zecpaperwaller")
-       .version("APP_VERSION")
+       .version(version::version())
        .about("A command line Zcash Sapling paper wallet generator")
        .arg(Arg::with_name("testnet")
                 .long("testnet")

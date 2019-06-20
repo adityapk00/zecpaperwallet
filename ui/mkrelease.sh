@@ -73,7 +73,7 @@ cd ../cli
 
 # Clean everything first
 cargo clean
-sed -i "s/APP_VERSION/$APP_VERSION/" src/main.rs
+echo "pub fn version() -> &'static str { &\"$APP_VERSION\" }" > src/version.rs
 
 # Compile for mac directly
 cargo build --release 
