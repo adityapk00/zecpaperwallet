@@ -102,6 +102,9 @@ void MainWindow::SaveAsPDFButton() {
     // Get a save file name
     auto filename = QFileDialog::getSaveFileName(this, tr("Save as PDF"), "", tr("PDF Files (*.pdf)"));
     if (!filename.isEmpty()) {
+        if (!filename.endsWith(".pdf"))
+            filename = filename + ".pdf";
+
         bool success = rust_save_as_pdf(this->currentWallets.toStdString().c_str(), filename.toStdString().c_str());
         if (success) {
             QMessageBox::information(this, tr("Saved!"), tr("The wallets were saved to ") + filename);
@@ -119,11 +122,20 @@ void MainWindow::SaveAsJSONButton() {
         
     auto filename = QFileDialog::getSaveFileName(this, tr("Save as text"), "", tr("Text Files (*.txt)"));
     if (!filename.isEmpty()) {
+        if (!filename.endsWith(".txt"))
+            filename = filename + ".txt";
+            
+
         QFile file(filename);
         if (file.open(QIODevice::WriteOnly))
         {
             QTextStream stream(&file);
             stream << this->currentWallets << endl;
+
+            QMessageBox::information(this, tr("Saved!"), tr("The wallets were saved to ") + filename);
+        } else {
+            QMessageBox::warning(this, tr("Failed to save file"), 
+                    tr("Couldn't save the file for some unknown reason"));
         }
     }
 }
