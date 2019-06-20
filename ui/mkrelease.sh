@@ -48,8 +48,8 @@ echo -n "Configuring............"
 # Build
 $QT_STATIC/qmake papersapling.pro CONFIG+=release >/dev/null
 APP_BUILD_DATE=$(date +%F)
-echo "APP_VERSION \"$APP_VERSION\"" > src/version.h
-echo "APP_BUILD_DATE \"$APP_BUILD_DATE\"" >> src/version.h
+echo "#define APP_VERSION \"$APP_VERSION\"" > src/version.h
+echo "#define APP_BUILD_DATE \"$APP_BUILD_DATE\"" >> src/version.h
 
 echo "[OK]"
 
