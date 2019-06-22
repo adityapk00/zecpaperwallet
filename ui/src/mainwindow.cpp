@@ -63,7 +63,7 @@ QString Generate(int zaddrs, int taddrs, QString entropy) {
     QString walletJson(wallet);
     
     // We'll overwrite the privatekeys for safety before sending it back to rust
-    std::memset(wallet, 0, strlen(wallet)); 
+    std::memset(wallet, 0xFF, strlen(wallet)); 
     rust_free_string(wallet);
 
     return walletJson;
