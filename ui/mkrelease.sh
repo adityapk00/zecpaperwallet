@@ -43,6 +43,13 @@ rm -rf    artifacts/macOS-zecpaperwallet-v$APP_VERSION
 mkdir -p  artifacts/macOS-zecpaperwallet-v$APP_VERSION
 echo "[OK]"
 
+echo -n "Testing................"
+cd ../lib
+if ! cargo test --release; then
+    echo "[Test Failed]"
+    exit 1;
+fi
+cd ../ui
 
 echo -n "Configuring............"
 # Build
