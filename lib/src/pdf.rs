@@ -1,5 +1,7 @@
 extern crate printpdf;
 
+use crate::paper::params;
+
 use qrcode::QrCode;
 use qrcode::types::Color;
 
@@ -9,10 +11,11 @@ use std::f64;
 use std::fs::File;
 use printpdf::*;
 
+
 /**
  * Save the list of wallets (address + private keys) to the given PDF file name.
  */
-pub fn save_to_pdf(addresses: &str, filename: &str) -> Result<(), String> {
+pub fn save_to_pdf(is_testnet: bool, addresses: &str, filename: &str) -> Result<(), String> {
     let (doc, page1, layer1) = PdfDocument::new("Zec Sapling Paper Wallet", Mm(210.0), Mm(297.0), "Layer 1");
 
     let font  = doc.add_builtin_font(BuiltinFont::Courier).unwrap();
@@ -39,15 +42,16 @@ pub fn save_to_pdf(addresses: &str, filename: &str) -> Result<(), String> {
             current_layer = doc.get_page(page2).add_layer("Layer 3");
         }
 
-        let address = kv["address"].as_str().unwrap();
-        let pk      = kv["private_key"].as_str().unwrap();
+        let address  = kv["address"].as_str().unwrap();
+        let pk       = kv["private_key"].as_str().unwrap();
+        let is_taddr = !address.starts_with(&params(is_testnet).zaddress_prefix);
 
-        let (seed, hdpath, is_taddr) = if kv["type"].as_str().unwrap() == "zaddr" {
-            (kv["seed"]["HDSeed"].as_str().unwrap(), kv["seed"]["path"].as_str().unwrap(), false)
+        let (seed, hdpath) = if kv["type"].as_str().unwrap() == "zaddr" && kv.contains("seed") {
+            (kv["seed"]["HDSeed"].as_str().unwrap(), kv["seed"]["path"].as_str().unwrap())
         } else {
-            ("", "", true)
+            ("", "")
         };
-        
+
         // Add address + private key
         add_address_to_page(&current_layer, &font, &font_bold, address, is_taddr, pos);
         add_pk_to_page(&current_layer, &font, &font_bold, pk, address, is_taddr, seed, hdpath, pos);
@@ -202,7 +206,7 @@ fn add_pk_to_page(current_layer: &PdfLayerReference, font: &IndirectFontRef, fon
     }
 
     // And add the seed too. 
-    if !is_taddr {
+    if !seed.is_empty() {
         current_layer.use_text(format!("HDSeed: {}, Path: {}", seed, path).as_str(), 8, Mm(10.0), Mm(ypos-35.0), &font);
     }
 }

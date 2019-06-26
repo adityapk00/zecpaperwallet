@@ -1,14 +1,19 @@
-
+use std::thread;
 use hex;
 use secp256k1;
 use ripemd160::{Ripemd160, Digest};
 use base58::{ToBase58};
-use zip32::{ChildIndex, ExtendedSpendingKey};
+use zip32::{ChildIndex, ExtendedSpendingKey, ExtendedFullViewingKey};
 use bech32::{Bech32, u5, ToBase32};
 use rand::{Rng, ChaChaRng, FromEntropy, SeedableRng};
 use json::{array, object};
 use sha2;
-
+use std::io;
+use std::io::Write;
+use std::sync::mpsc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::{SystemTime};
 
 /// A trait for converting a [u8] to base58 encoded string.
 pub trait ToBase58Check {
@@ -42,21 +47,23 @@ fn double_sha256(payload: &[u8]) -> Vec<u8> {
 /// Parameters used to generate addresses and private keys. Look in chainparams.cpp (in zcashd/src)
 /// to get these values. 
 /// Usually these will be different for testnet and for mainnet.
-struct CoinParams {
-    taddress_version: [u8; 2],
-    tsecret_prefix  : [u8; 1],
-    zaddress_prefix : String,
-    zsecret_prefix  : String,
-    cointype        : u32,
+pub struct CoinParams {
+    pub taddress_version: [u8; 2],
+    pub tsecret_prefix  : [u8; 1],
+    pub zaddress_prefix : String,
+    pub zsecret_prefix  : String,
+    pub zviewkey_prefix : String,
+    pub cointype        : u32,
 }
 
-fn params(testnet: bool) -> CoinParams {
-    if testnet {
+pub fn params(is_testnet: bool) -> CoinParams {
+    if is_testnet {
         CoinParams {
             taddress_version : [0x1D, 0x25],
             tsecret_prefix   : [0xEF],
             zaddress_prefix  : "ztestsapling".to_string(),
             zsecret_prefix   : "secret-extended-key-test".to_string(),
+            zviewkey_prefix  : "zviews".to_string(),
             cointype         : 1
         }
     } else {
@@ -65,13 +72,116 @@ fn params(testnet: bool) -> CoinParams {
             tsecret_prefix   : [0x80],
             zaddress_prefix  : "zs".to_string(),
             zsecret_prefix   : "secret-extended-key-main".to_string(),
+            zviewkey_prefix  : "zviewtestsapling".to_string(),
             cointype         : 133
         }
     }
 }
 
+pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc::Sender<String>, please_stop: Arc<AtomicBool>) {
+    let prefix_str : String = params(is_testnet).zaddress_prefix + "1" + &prefix;
+
+    let msk = ExtendedSpendingKey::master(&entropy); 
+    let mut i: u32 = 0;
+
+    let mut v = vec![0; 43];
+
+    loop {
+        let spk: ExtendedSpendingKey = ExtendedSpendingKey::from_path(&msk, &[ ChildIndex::NonHardened(i) ]);
+        let (_d, addr) = spk.default_address().expect("Cannot get result");
+
+        // Address is encoded as a bech32 string
+        v.get_mut(..11).unwrap().copy_from_slice(&addr.diversifier.0);
+        addr.pk_d.write(v.get_mut(11..).unwrap()).expect("Cannot write!");
+        let checked_data: Vec<u5> = v.to_base32();
+        let encoded : String = Bech32::new(params(is_testnet).zaddress_prefix.into(), checked_data).expect("bech32 failed").to_string();
+        
+        if encoded.starts_with(&prefix_str) {
+            // Private Key is encoded as bech32 string
+            let mut vp = Vec::new();
+            spk.write(&mut vp).expect("Can't write private key");
+            let c_d: Vec<u5> = vp.to_base32();
+            let encoded_pk = Bech32::new(params(is_testnet).zsecret_prefix.into(), c_d).expect("bech32 failed").to_string();
+
+            let wallet = array!{object!{
+                "num"           => 0,
+                "address"       => encoded,
+                "private_key"   => encoded_pk,
+                "type"          => "zaddr"}};
+            
+            tx.send(json::stringify_pretty(wallet, 2)).unwrap();
+            return;
+        } 
+
+        i = i + 1;
+        if i%1000 == 0 {
+            if please_stop.load(Ordering::Relaxed) {
+                return;
+            }
+            tx.send("Processed:1000".to_string()).unwrap();
+        }
+
+        if i == 0 { return; }
+    }
+}
+
+/// Generate a vanity address with the given prefix.
+pub fn generate_vanity_wallet(is_testnet: bool, prefix: String) -> String {
+    // Get 32 bytes of system entropy
+    let mut system_rng = ChaChaRng::from_entropy();    
+    
+    let (tx, rx) = mpsc::channel();
+    let please_stop = Arc::new(AtomicBool::new(false));
+
+    let mut handles = Vec::new();
+
+    for _i in 0..8 {
+        let testnet_local = is_testnet.clone();
+        let prefix_local = prefix.clone();
+        let tx_local = mpsc::Sender::clone(&tx);
+        let ps_local = please_stop.clone();
+    
+        let mut entropy: [u8; 32] = [0; 32];
+        system_rng.fill(&mut entropy);
+    
+        let handle = thread::spawn(move || {
+            vanity_thread(testnet_local, &entropy, prefix_local, tx_local, ps_local);
+        });
+        handles.push(handle);
+    }
+    
+    let mut processed: u64   = 0;
+    let now = SystemTime::now();
+
+    let mut wallet: String;
+
+    loop {
+        let recv = rx.recv().unwrap();
+        if recv.starts_with(&"Processed") {
+            processed = processed + 1000;
+            let timeelapsed = now.elapsed().unwrap().as_secs();
+
+            print!("Checking addresses at {}/sec \r", (processed / timeelapsed));
+            io::stdout().flush().ok().unwrap();
+        } else {
+            // Found a solution
+            println!("");   // To clear the previous inline output to stdout;
+            wallet = recv;
+
+            please_stop.store(true, Ordering::Relaxed);
+            break;
+        } 
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }    
+
+    return wallet;
+}
+
 /// Generate a series of `count` addresses and private keys. 
-pub fn generate_wallet(testnet: bool, nohd: bool, zcount: u32, tcount: u32, user_entropy: &[u8]) -> String {        
+pub fn generate_wallet(is_testnet: bool, nohd: bool, zcount: u32, tcount: u32, user_entropy: &[u8]) -> String {        
     // Get 32 bytes of system entropy
     let mut system_entropy:[u8; 32] = [0; 32]; 
     {
@@ -95,10 +205,10 @@ pub fn generate_wallet(testnet: bool, nohd: bool, zcount: u32, tcount: u32, user
         let mut seed: [u8; 32] = [0; 32];
         rng.fill(&mut seed);
         
-        return gen_addresses_with_seed_as_json(testnet, zcount, tcount, |i| (seed.to_vec(), i));
+        return gen_addresses_with_seed_as_json(is_testnet, zcount, tcount, |i| (seed.to_vec(), i));
     } else {
         // Not using HD addresses, so derive a new seed every time    
-        return gen_addresses_with_seed_as_json(testnet, zcount, tcount, |_| {            
+        return gen_addresses_with_seed_as_json(is_testnet, zcount, tcount, |_| {            
             let mut seed:[u8; 32] = [0; 32]; 
             rng.fill(&mut seed);
             
@@ -115,7 +225,7 @@ pub fn generate_wallet(testnet: bool, nohd: bool, zcount: u32, tcount: u32, user
 /// get_seed is a closure that will take the address number being derived, and return a tuple cointaining the 
 /// seed and child number to use to derive this wallet. 
 /// It is useful if we want to reuse (or not) the seed across multiple wallets.
-fn gen_addresses_with_seed_as_json<F>(testnet: bool, zcount: u32, tcount: u32, mut get_seed: F) -> String 
+fn gen_addresses_with_seed_as_json<F>(is_testnet: bool, zcount: u32, tcount: u32, mut get_seed: F) -> String 
     where F: FnMut(u32) -> (Vec<u8>, u32)
 {
     let mut ans = array![];
@@ -131,7 +241,7 @@ fn gen_addresses_with_seed_as_json<F>(testnet: bool, zcount: u32, tcount: u32, m
     // First generate the Z addresses
     for i in 0..zcount {
         let (seed, child) = get_seed(i);
-        let (addr, pk, path) = get_zaddress(testnet, &seed, child);
+        let (addr, pk, _vk, path) = get_zaddress(is_testnet, &seed, child);
         ans.push(object!{
                 "num"           => i,
                 "address"       => addr,
@@ -143,7 +253,7 @@ fn gen_addresses_with_seed_as_json<F>(testnet: bool, zcount: u32, tcount: u32, m
 
     // Next generate the T addresses
     for i in 0..tcount {        
-        let (addr, pk_wif) = get_taddress(testnet, &mut rng);
+        let (addr, pk_wif) = get_taddress(is_testnet, &mut rng);
 
         ans.push(object!{
             "num"               => i,
@@ -157,7 +267,7 @@ fn gen_addresses_with_seed_as_json<F>(testnet: bool, zcount: u32, tcount: u32, m
 }
 
 /// Generate a t address
-fn get_taddress(testnet: bool, mut rng: &mut ChaChaRng) -> (String, String) {
+fn get_taddress(is_testnet: bool, mut rng: &mut ChaChaRng) -> (String, String) {
     // SECP256k1 context
     let ctx = secp256k1::Secp256k1::default();
 
@@ -166,28 +276,28 @@ fn get_taddress(testnet: bool, mut rng: &mut ChaChaRng) -> (String, String) {
     // Address 
     let mut hash160 = Ripemd160::new();
     hash160.input(sha2::Sha256::digest(&pubkey.serialize().to_vec()));
-    let addr = hash160.result().to_base58check(&params(testnet).taddress_version, &[]);
+    let addr = hash160.result().to_base58check(&params(is_testnet).taddress_version, &[]);
 
     // Private Key
     let sk_bytes: &[u8] = &sk[..];
-    let pk_wif = sk_bytes.to_base58check(&params(testnet).tsecret_prefix, &[0x01]);  
+    let pk_wif = sk_bytes.to_base58check(&params(is_testnet).tsecret_prefix, &[0x01]);  
 
     return (addr, pk_wif);
 }
 
 /// Generate a standard ZIP-32 address from the given seed at 32'/44'/0'/index
-fn get_zaddress(testnet: bool, seed: &[u8], index: u32) -> (String, String, json::JsonValue) {
+fn get_zaddress(is_testnet: bool, seed: &[u8], index: u32) -> (String, String, String, json::JsonValue) {
    let spk: ExtendedSpendingKey = ExtendedSpendingKey::from_path(
             &ExtendedSpendingKey::master(seed),
             &[
                 ChildIndex::Hardened(32),
-                ChildIndex::Hardened(params(testnet).cointype),
+                ChildIndex::Hardened(params(is_testnet).cointype),
                 ChildIndex::Hardened(index)
             ],
         );
     let path = object!{
         "HDSeed"    => hex::encode(seed),
-        "path"      => format!("m/32'/{}'/{}'", params(testnet).cointype, index)
+        "path"      => format!("m/32'/{}'/{}'", params(is_testnet).cointype, index)
     };
 
     let (_d, addr) = spk.default_address().expect("Cannot get result");
@@ -197,15 +307,21 @@ fn get_zaddress(testnet: bool, seed: &[u8], index: u32) -> (String, String, json
     v.get_mut(..11).unwrap().copy_from_slice(&addr.diversifier.0);
     addr.pk_d.write(v.get_mut(11..).unwrap()).expect("Cannot write!");
     let checked_data: Vec<u5> = v.to_base32();
-    let encoded = Bech32::new(params(testnet).zaddress_prefix.into(), checked_data).expect("bech32 failed").to_string();
+    let encoded = Bech32::new(params(is_testnet).zaddress_prefix.into(), checked_data).expect("bech32 failed").to_string();
 
     // Private Key is encoded as bech32 string
     let mut vp = Vec::new();
     spk.write(&mut vp).expect("Can't write private key");
     let c_d: Vec<u5> = vp.to_base32();
-    let encoded_pk = Bech32::new(params(testnet).zsecret_prefix.into(), c_d).expect("bech32 failed").to_string();
+    let encoded_pk = Bech32::new(params(is_testnet).zsecret_prefix.into(), c_d).expect("bech32 failed").to_string();
 
-    return (encoded.to_string(), encoded_pk.to_string(), path);
+    // Viewing Key is encoded as bech32 string
+    let mut vv = Vec::new();
+    ExtendedFullViewingKey::from(&spk).write(&mut vv).expect("Can't write viewing key");
+    let c_v: Vec<u5> = vv.to_base32();
+    let encoded_vk = Bech32::new(params(is_testnet).zviewkey_prefix.into(), c_v).expect("bech32 failed").to_string();
+
+    return (encoded, encoded_pk, encoded_vk, path);
 }
 
 
@@ -340,7 +456,7 @@ mod tests {
     }
 
     /// Test the address derivation against the test data (see below)
-    fn test_address_derivation(testdata: &str, testnet: bool) {
+    fn test_address_derivation(testdata: &str, is_testnet: bool) {
         use crate::paper::gen_addresses_with_seed_as_json;
         let td = json::parse(&testdata.replace("'", "\"")).unwrap();
         
@@ -348,7 +464,7 @@ mod tests {
             let seed = hex::decode(i["seed"].as_str().unwrap()).unwrap();
             let num  = i["num"].as_u32().unwrap();
 
-            let addresses = gen_addresses_with_seed_as_json(testnet, num+1, 0, |child| (seed.clone(), child));
+            let addresses = gen_addresses_with_seed_as_json(is_testnet, num+1, 0, |child| (seed.clone(), child));
 
             let j = json::parse(&addresses).unwrap();
             assert_eq!(j[num as usize]["address"], i["addr"]);

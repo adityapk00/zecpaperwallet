@@ -38,6 +38,10 @@ fn main() {
                 .long("entropy")
                 .takes_value(true)
                 .help("Provide additional entropy to the random number generator. Any random string, containing 32-64 characters"))
+        .arg(Arg::with_name("vanity")
+                .long("vanity")
+                .help("Generate a vanity address with the given prefix")
+                .takes_value(true))
         .arg(Arg::with_name("t_addresses")
                 .short("t")
                 .long("taddrs")
@@ -60,7 +64,7 @@ fn main() {
                 }))
        .get_matches();  
 
-    let testnet: bool = matches.is_present("testnet");
+    let is_testnet: bool = matches.is_present("testnet");
     
     let nohd: bool    = matches.is_present("nohd");
 
@@ -72,22 +76,6 @@ fn main() {
     if format == "pdf" && filename.is_none() {
         eprintln!("Need an output file name when writing to PDF");
         return;
-    }
-
-    // Get user entropy. 
-    let mut entropy: Vec<u8> = Vec::new();
-    // If the user hasn't specified any, read from the stdin
-    if matches.value_of("entropy").is_none() {
-        // Read from stdin
-        println!("Provide additional entropy for generating random numbers. Type in a string of random characters, press [ENTER] when done");
-        let mut buffer = String::new();
-        let stdin = io::stdin();
-        stdin.lock().read_line(&mut buffer).unwrap();
-
-        entropy.extend_from_slice(buffer.as_bytes());
-    } else {
-        // Use provided entropy. 
-        entropy.extend(matches.value_of("entropy").unwrap().as_bytes());
     }
 
     // Get the filename and output format
@@ -106,11 +94,49 @@ fn main() {
     // Number of z addresses to generate
     let z_addresses = matches.value_of("z_addresses").unwrap().parse::<u32>().unwrap();    
 
-    print!("Generating {} Sapling addresses and {} Transparent addresses...", z_addresses, t_addresses);
-    io::stdout().flush().ok();
-    let addresses = generate_wallet(testnet, nohd, z_addresses, t_addresses, &entropy); 
-    println!("[OK]");
-    
+
+    let addresses = if !matches.value_of("vanity").is_none() {
+        if z_addresses != 1 {
+            eprintln!("Can only generate 1 zaddress in vanity mode. You specified {}", z_addresses);
+            return;
+        }
+
+        if t_addresses != 0 {
+            eprintln!("Can't generate vanity t-addressses yet");
+            return;
+        }
+
+        let prefix = matches.value_of("vanity").unwrap().to_string();
+        println!("Generating address starting with \"{}\"", prefix);
+        let addresses = generate_vanity_wallet(is_testnet, prefix);
+
+        // return
+        addresses
+    } else {
+        // Get user entropy. 
+        let mut entropy: Vec<u8> = Vec::new();
+        // If the user hasn't specified any, read from the stdin
+        if matches.value_of("entropy").is_none() {
+            // Read from stdin
+            println!("Provide additional entropy for generating random numbers. Type in a string of random characters, press [ENTER] when done");
+            let mut buffer = String::new();
+            let stdin = io::stdin();
+            stdin.lock().read_line(&mut buffer).unwrap();
+
+            entropy.extend_from_slice(buffer.as_bytes());
+        } else {
+            // Use provided entropy. 
+            entropy.extend(matches.value_of("entropy").unwrap().as_bytes());
+        }
+
+        print!("Generating {} Sapling addresses and {} Transparent addresses...", z_addresses, t_addresses);
+        io::stdout().flush().ok();
+        let addresses = generate_wallet(is_testnet, nohd, z_addresses, t_addresses, &entropy); 
+        println!("[OK]");
+
+        addresses
+    };
+
     // If the default format is present, write to the console if the filename is absent
     if format == "json" {
         if filename.is_none() {
@@ -123,7 +149,7 @@ fn main() {
         // We already know the output file name was specified
         print!("Writing {:?} as a PDF file...", filename.unwrap());
         io::stdout().flush().ok();
-        match pdf::save_to_pdf(&addresses, filename.unwrap()) {
+        match pdf::save_to_pdf(is_testnet, &addresses, filename.unwrap()) {
             Ok(_)   => { println!("[OK]");},
             Err(e)  => {
                 eprintln!("[ERROR]");
