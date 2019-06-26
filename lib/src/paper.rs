@@ -161,7 +161,7 @@ pub fn generate_vanity_wallet(is_testnet: bool, num_threads: u32, prefix: String
             processed = processed + 1000;
             let timeelapsed = now.elapsed().unwrap().as_secs() + 1; // Add one second to prevent any divide by zero problems.
 
-            print!("Checking addresses at {}/sec \r", (processed / timeelapsed));
+            print!("Checking addresses at {}/sec on {} CPU threads\r", (processed / timeelapsed), num_threads);
             io::stdout().flush().ok().unwrap();
         } else {
             // Found a solution
