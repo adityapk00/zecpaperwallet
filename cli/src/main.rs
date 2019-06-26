@@ -42,6 +42,11 @@ fn main() {
                 .long("vanity")
                 .help("Generate a vanity address with the given prefix")
                 .takes_value(true))
+        .arg(Arg::with_name("threads")
+                .long("threads")
+                .help("Number of threads to use for the vanity address generator. Set this to the number of CPUs you have")
+                .takes_value(true)
+                .default_value("1"))
         .arg(Arg::with_name("t_addresses")
                 .short("t")
                 .long("taddrs")
@@ -94,7 +99,6 @@ fn main() {
     // Number of z addresses to generate
     let z_addresses = matches.value_of("z_addresses").unwrap().parse::<u32>().unwrap();    
 
-
     let addresses = if !matches.value_of("vanity").is_none() {
         if z_addresses != 1 {
             eprintln!("Can only generate 1 zaddress in vanity mode. You specified {}", z_addresses);
@@ -106,9 +110,11 @@ fn main() {
             return;
         }
 
+        let num_threads = matches.value_of("threads").unwrap().parse::<u32>().unwrap();
+
         let prefix = matches.value_of("vanity").unwrap().to_string();
         println!("Generating address starting with \"{}\"", prefix);
-        let addresses = generate_vanity_wallet(is_testnet, prefix);
+        let addresses = generate_vanity_wallet(is_testnet, num_threads, prefix);
 
         // return
         addresses

@@ -126,7 +126,7 @@ pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc:
 }
 
 /// Generate a vanity address with the given prefix.
-pub fn generate_vanity_wallet(is_testnet: bool, prefix: String) -> String {
+pub fn generate_vanity_wallet(is_testnet: bool, num_threads: u32, prefix: String) -> String {
     // Get 32 bytes of system entropy
     let mut system_rng = ChaChaRng::from_entropy();    
     
@@ -135,7 +135,7 @@ pub fn generate_vanity_wallet(is_testnet: bool, prefix: String) -> String {
 
     let mut handles = Vec::new();
 
-    for _i in 0..8 {
+    for _i in 0..num_threads {
         let testnet_local = is_testnet.clone();
         let prefix_local = prefix.clone();
         let tx_local = mpsc::Sender::clone(&tx);
@@ -159,7 +159,7 @@ pub fn generate_vanity_wallet(is_testnet: bool, prefix: String) -> String {
         let recv = rx.recv().unwrap();
         if recv.starts_with(&"Processed") {
             processed = processed + 1000;
-            let timeelapsed = now.elapsed().unwrap().as_secs();
+            let timeelapsed = now.elapsed().unwrap().as_secs() + 1; // Add one second to prevent any divide by zero problems.
 
             print!("Checking addresses at {}/sec \r", (processed / timeelapsed));
             io::stdout().flush().ok().unwrap();
