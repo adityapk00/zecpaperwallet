@@ -79,7 +79,7 @@ echo "pub fn version() -> &'static str { &\"$APP_VERSION\" }" > src/version.rs
 cargo build --release 
 
 # For Windows and Linux, build via docker
-docker run --rm -v $(pwd)/..:/opt/zecpaperwallet rust/zecpaperwallet:v0.2 bash -c "cd /opt/zecpaperwallet/cli && cargo build --release --target x86_64-unknown-linux-musl && cargo build --release --target x86_64-pc-windows-gnu && cargo build --release --target aarch64-unknown-linux-gnu"
+docker run --rm -v $(pwd)/..:/opt/zecpaperwallet rust/zecpaperwallet:v0.3 bash -c "cd /opt/zecpaperwallet/cli && cargo build --release --target x86_64-unknown-linux-musl && cargo build --release --target x86_64-pc-windows-gnu && cargo build --release --target aarch64-unknown-linux-gnu && cargo build --release --target armv7-unknown-linux-gnueabihf"
 
 # Come back and package everything
 cd ../ui
@@ -131,5 +131,18 @@ cd aarch64-zecpaperwallet-v$APP_VERSION
 gsha256sum zecpaperwallet > sha256sum.txt
 cd ..
 zip -r aarch64-zecpaperwallet-v$APP_VERSION.zip aarch64-zecpaperwallet-v$APP_VERSION 
+cd ..
+
+
+# ARMv7
+rm -rf artifacts/armv7-zecpaperwallet-v$APP_VERSION
+mkdir -p artifacts/armv7-zecpaperwallet-v$APP_VERSION
+cp ../cli/target/armv7-unknown-linux-gnueabihf/release/zecpaperwallet artifacts/armv7-zecpaperwallet-v$APP_VERSION/
+gpg --batch --output artifacts/armv7-zecpaperwallet-v$APP_VERSION/zecpaperwallet.sig --detach-sig artifacts/armv7-zecpaperwallet-v$APP_VERSION/zecpaperwallet
+cd artifacts
+cd armv7-zecpaperwallet-v$APP_VERSION
+gsha256sum zecpaperwallet > sha256sum.txt
+cd ..
+zip -r armv7-zecpaperwallet-v$APP_VERSION.zip armv7-zecpaperwallet-v$APP_VERSION 
 cd ..
 
