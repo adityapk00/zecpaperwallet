@@ -63,7 +63,7 @@ QString Generate(int zaddrs, int taddrs, QString entropy) {
     QString walletJson(wallet);
     
     // We'll overwrite the privatekeys for safety before sending it back to rust
-    std::memset(wallet, 0, strlen(wallet)); 
+    std::memset(wallet, 0xFF, strlen(wallet)); 
     rust_free_string(wallet);
 
     return walletJson;
@@ -105,7 +105,7 @@ void MainWindow::SaveAsPDFButton() {
         if (!filename.endsWith(".pdf"))
             filename = filename + ".pdf";
 
-        bool success = rust_save_as_pdf(this->currentWallets.toStdString().c_str(), filename.toStdString().c_str());
+        bool success = rust_save_as_pdf(false, this->currentWallets.toStdString().c_str(), filename.toStdString().c_str());
         if (success) {
             QMessageBox::information(this, tr("Saved!"), tr("The wallets were saved to ") + filename);
         } else {
