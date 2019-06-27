@@ -14,6 +14,8 @@ use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime};
+use zip32::{DiversifierIndex, DiversifierKey};
+use std::str::FromStr;
 
 /// A trait for converting a [u8] to base58 encoded string.
 pub trait ToBase58Check {
@@ -78,25 +80,68 @@ pub fn params(is_testnet: bool) -> CoinParams {
     }
 }
 
+pub fn increment(s: &mut [u8; 32]) -> Result<(), ()> {
+    for k in 0..32 {
+        s[k] = s[k].wrapping_add(1);
+        if s[k] != 0 {
+            // No overflow
+            return Ok(());
+        }
+    }
+    // Overflow
+    Err(())
+}
+
 pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc::Sender<String>, please_stop: Arc<AtomicBool>) {
-    let prefix_str : String = params(is_testnet).zaddress_prefix + "1" + &prefix;
+    
+    let mut seed: [u8; 32] = [0; 32];
+    seed.copy_from_slice(&entropy[0..32]);
 
-    let msk = ExtendedSpendingKey::master(&entropy); 
+    let di = DiversifierIndex::new();
+    let vanity_bytes : Vec<u5> = vec![u5::try_from_u8(2).unwrap(), u5::try_from_u8(25).unwrap(), u5::try_from_u8(24).unwrap()];
+    //Bech32::from_str("zs1zecwallet").map_err(|e| eprintln!("{:?}", e));
+
+    //vanity_bytes.clone_from_slice(Bech32::from_str("zs1zecwallet").unwrap().data());
+
+    let spk2: ExtendedSpendingKey = ExtendedSpendingKey::master(&seed);
+    let mut spkv = vec![];
+    spk2.write(&mut spkv).unwrap();
+
     let mut i: u32 = 0;
-
-    let mut v = vec![0; 43];
-
     loop {
-        let spk: ExtendedSpendingKey = ExtendedSpendingKey::from_path(&msk, &[ ChildIndex::NonHardened(i) ]);
-        let (_d, addr) = spk.default_address().expect("Cannot get result");
+        if increment(&mut seed).is_err() {
+            return;
+        }
 
-        // Address is encoded as a bech32 string
-        v.get_mut(..11).unwrap().copy_from_slice(&addr.diversifier.0);
-        addr.pk_d.write(v.get_mut(11..).unwrap()).expect("Cannot write!");
-        let checked_data: Vec<u5> = v.to_base32();
-        let encoded : String = Bech32::new(params(is_testnet).zaddress_prefix.into(), checked_data).expect("bech32 failed").to_string();
+        let dk = DiversifierKey::master(&seed);
+        let (ndk, nd) = dk.diversifier(di).unwrap();
+
+        // test for nd
+        let mut isequal = true;
+        for i in 0..vanity_bytes.len() {
+            if vanity_bytes[i] != nd.0.to_base32()[i] {
+                isequal = false;
+                break;
+            }
+        }
+        //println!("Comparing {:?} and {:?} resulting in {:?}", nd.0.to_base32(), vanity_bytes, isequal);
         
-        if encoded.starts_with(&prefix_str) {
+        //if vanity_bytes.iter().zip(nd.0.to_base32().iter()).filter(|&(a,b)| a == b).count() == vanity_bytes.len() {
+        if isequal { 
+            let len = spkv.len();
+            spkv[(len-32)..len].copy_from_slice(&dk.0[0..32]);
+            let spk = ExtendedSpendingKey::read(&spkv[..]).unwrap();
+
+            let (_d, addr) = spk.default_address().expect("Cannot get result");
+
+            // Address is encoded as a bech32 string
+            let mut v = vec![0; 43];
+
+            v.get_mut(..11).unwrap().copy_from_slice(&addr.diversifier.0);
+            addr.pk_d.write(v.get_mut(11..).unwrap()).expect("Cannot write!");
+            let checked_data: Vec<u5> = v.to_base32();
+            let encoded : String = Bech32::new(params(is_testnet).zaddress_prefix.into(), checked_data).expect("bech32 failed").to_string();
+            
             // Private Key is encoded as bech32 string
             let mut vp = Vec::new();
             spk.write(&mut vp).expect("Can't write private key");
@@ -111,7 +156,7 @@ pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc:
             
             tx.send(json::stringify_pretty(wallet, 2)).unwrap();
             return;
-        } 
+        }
 
         i = i + 1;
         if i%1000 == 0 {
