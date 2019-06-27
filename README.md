@@ -18,6 +18,11 @@ To generate a Zcash paper wallet and save it as a PDF, run
 
 This will generate 3 shielded z-addresses and their corresponding private keys, and save them in a PDF file called `zecpaper-output.pdf`
 
+## Vanity Addresses
+You can generate a "vanity address" (that is, an address starting with a given prefix) by specifying a `--vanity` argument with the prefix you want. 
+
+Note that generating vanity addresses with a prefix longer than 4-5 characters is computationally expensive. You can run it on multiple CPUs on your computer by specifying the `--threads` option. 
+
 # Compiling from Source
 zecpaperwallet is built with rust. To compile from source, you [install Rust](https://www.rust-lang.org/tools/install). Basically, you need to:
 ```
@@ -66,6 +71,9 @@ OPTIONS:
                                   containing 32-64 characters
     -f, --format <FORMAT>         What format to generate the output in [default: json]  [possible values: pdf, json]
     -t, --taddrs <t_addresses>    Numbe rof T addresses to generate [default: 0]
+        --threads <threads>       Number of threads to use for the vanity address generator. Set this to the number of
+                                  CPUs you have [default: 1]
+        --vanity <vanity>         Generate a vanity address with the given prefix
     -z, --zaddrs <z_addresses>    Number of Z addresses (Sapling) to generate [default: 1]
 
 ARGS:
