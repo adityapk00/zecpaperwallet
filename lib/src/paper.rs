@@ -15,7 +15,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime};
 use zip32::{DiversifierIndex, DiversifierKey};
-use std::str::FromStr;
 
 /// A trait for converting a [u8] to base58 encoded string.
 pub trait ToBase58Check {
@@ -92,18 +91,48 @@ pub fn increment(s: &mut [u8; 32]) -> Result<(), ()> {
     Err(())
 }
 
+fn get_bech32_for_prefix(prefix: String) -> Result<Vec<u5>, String> {
+    // Reverse character set. Maps ASCII byte -> CHARSET index on [0,31]
+    const CHARSET_REV: [i8; 128] = [
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        15, -1, 10, 17, 21, 20, 26, 30,  7,  5, -1, -1, -1, -1, -1, -1,
+        -1, 29, -1, 24, 13, 25,  9,  8, 23, -1, 18, 22, 31, 27, 19, -1,
+        1,  0,  3, 16, 11, 28, 12, 14,  6,  4,  2, -1, -1, -1, -1, -1,
+        -1, 29, -1, 24, 13, 25,  9,  8, 23, -1, 18, 22, 31, 27, 19, -1,
+        1,  0,  3, 16, 11, 28, 12, 14,  6,  4,  2, -1, -1, -1, -1, -1
+    ];
+
+    let mut ans = Vec::new();
+    for c in prefix.chars() {
+        if CHARSET_REV[c as usize] == -1 {
+            return Err(format!("Invalid character in prefix: {}", c));
+        }
+        ans.push(u5::try_from_u8(CHARSET_REV[c as usize] as u8).expect("Should be able to convert to u5"));
+    }
+
+    return Ok(ans);
+}
+
+
 pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc::Sender<String>, please_stop: Arc<AtomicBool>) {
     
     let mut seed: [u8; 32] = [0; 32];
     seed.copy_from_slice(&entropy[0..32]);
 
     let di = DiversifierIndex::new();
-    let vanity_bytes : Vec<u5> = vec![u5::try_from_u8(2).unwrap(), u5::try_from_u8(25).unwrap(), u5::try_from_u8(24).unwrap()];
-    //Bech32::from_str("zs1zecwallet").map_err(|e| eprintln!("{:?}", e));
+    let vanity_bytes = match get_bech32_for_prefix(prefix) {
+        Ok(v) => v,
+        Err(e) => { 
+            eprintln!("Disallowed character in prefix. Note that ['b', 'i', 'o', '1'] are not allowed in addresses. Error was {}", e);
+            return;
+        }
+    };
 
-    //vanity_bytes.clone_from_slice(Bech32::from_str("zs1zecwallet").unwrap().data());
+    let spk2 = ExtendedSpendingKey::from_path(&ExtendedSpendingKey::master(&seed),
+                            &[ChildIndex::Hardened(32), ChildIndex::Hardened(params(is_testnet).cointype), ChildIndex::Hardened(0)]);
 
-    let spk2: ExtendedSpendingKey = ExtendedSpendingKey::master(&seed);
     let mut spkv = vec![];
     spk2.write(&mut spkv).unwrap();
 
@@ -114,7 +143,7 @@ pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc:
         }
 
         let dk = DiversifierKey::master(&seed);
-        let (ndk, nd) = dk.diversifier(di).unwrap();
+        let (_ndk, nd) = dk.diversifier(di).unwrap();
 
         // test for nd
         let mut isequal = true;
@@ -124,9 +153,7 @@ pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc:
                 break;
             }
         }
-        //println!("Comparing {:?} and {:?} resulting in {:?}", nd.0.to_base32(), vanity_bytes, isequal);
-        
-        //if vanity_bytes.iter().zip(nd.0.to_base32().iter()).filter(|&(a,b)| a == b).count() == vanity_bytes.len() {
+
         if isequal { 
             let len = spkv.len();
             spkv[(len-32)..len].copy_from_slice(&dk.0[0..32]);
@@ -159,11 +186,11 @@ pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc:
         }
 
         i = i + 1;
-        if i%1000 == 0 {
+        if i%5000 == 0 {
             if please_stop.load(Ordering::Relaxed) {
                 return;
             }
-            tx.send("Processed:1000".to_string()).unwrap();
+            tx.send("Processed:5000".to_string()).unwrap();
         }
 
         if i == 0 { return; }
@@ -171,7 +198,13 @@ pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc:
 }
 
 /// Generate a vanity address with the given prefix.
-pub fn generate_vanity_wallet(is_testnet: bool, num_threads: u32, prefix: String) -> String {
+pub fn generate_vanity_wallet(is_testnet: bool, num_threads: u32, prefix: String) -> Result<String, String> {
+    // Test the prefix first
+    match get_bech32_for_prefix(prefix.clone()) {
+        Ok(_)  => (),
+        Err(e) => return Err(format!("{}. Note that ['b', 'i', 'o', '1'] are not allowed in addresses.", e))
+    };
+
     // Get 32 bytes of system entropy
     let mut system_rng = ChaChaRng::from_entropy();    
     
@@ -203,7 +236,7 @@ pub fn generate_vanity_wallet(is_testnet: bool, num_threads: u32, prefix: String
     loop {
         let recv = rx.recv().unwrap();
         if recv.starts_with(&"Processed") {
-            processed = processed + 1000;
+            processed = processed + 5000;
             let timeelapsed = now.elapsed().unwrap().as_secs() + 1; // Add one second to prevent any divide by zero problems.
 
             print!("Checking addresses at {}/sec on {} CPU threads\r", (processed / timeelapsed), num_threads);
@@ -222,7 +255,7 @@ pub fn generate_vanity_wallet(is_testnet: bool, num_threads: u32, prefix: String
         handle.join().unwrap();
     }    
 
-    return wallet;
+    return Ok(wallet);
 }
 
 /// Generate a series of `count` addresses and private keys. 
