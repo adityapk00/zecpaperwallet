@@ -114,7 +114,13 @@ fn main() {
 
         let prefix = matches.value_of("vanity").unwrap().to_string();
         println!("Generating address starting with \"{}\"", prefix);
-        let addresses = generate_vanity_wallet(is_testnet, num_threads, prefix);
+        let addresses = match generate_vanity_wallet(is_testnet, num_threads, prefix) {
+            Ok(w) => w,
+            Err(e) => {
+                eprintln!("{}", e);
+                return;
+            }
+        };
 
         // return
         addresses
