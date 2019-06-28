@@ -140,6 +140,47 @@ fn encode_privatekey(spk: &ExtendedSpendingKey, is_testnet: bool) -> String {
     return encoded_pk;
 }
 
+pub fn diversified_address(is_testnet: bool, entropy: &[u8]) {
+
+    let mut seed: [u8; 32] = [0; 32];
+
+    let spk = ExtendedSpendingKey::from_path(&ExtendedSpendingKey::master(&seed),
+                            &[ChildIndex::Hardened(32), ChildIndex::Hardened(params(is_testnet).cointype), ChildIndex::Hardened(0)]);
+
+    let mut di = DiversifierIndex::new();
+    {
+        let (din, addr) = ExtendedFullViewingKey::from(&spk).address(di).unwrap();
+        di = din;
+
+        // Address is encoded as a bech32 string
+        let mut v = vec![0; 43];
+
+        v.get_mut(..11).unwrap().copy_from_slice(&addr.diversifier.0);
+        addr.pk_d.write(v.get_mut(11..).unwrap()).expect("Cannot write!");
+        let checked_data: Vec<u5> = v.to_base32();
+        let encoded : String = Bech32::new(params(is_testnet).zaddress_prefix.into(), checked_data).expect("bech32 failed").to_string();
+        println!("Address 1 {}", encoded);
+    }
+
+    di.increment().unwrap();
+
+    {
+        let (di, addr) = ExtendedFullViewingKey::from(&spk).address(di).unwrap();
+
+        // Address is encoded as a bech32 string
+        let mut v = vec![0; 43];
+
+        v.get_mut(..11).unwrap().copy_from_slice(&addr.diversifier.0);
+        addr.pk_d.write(v.get_mut(11..).unwrap()).expect("Cannot write!");
+        let checked_data: Vec<u5> = v.to_base32();
+        let encoded : String = Bech32::new(params(is_testnet).zaddress_prefix.into(), checked_data).expect("bech32 failed").to_string();
+        println!("Address 2 {}", encoded);
+    }
+  
+    println!("Private key {}", encoded_pk);
+}
+
+
 /// A single thread that grinds through the Diversifiers to find the defualt key that matches the prefix
 pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc::Sender<String>, please_stop: Arc<AtomicBool>) {
     

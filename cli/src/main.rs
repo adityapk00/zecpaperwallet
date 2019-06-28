@@ -47,6 +47,11 @@ fn main() {
                 .help("Number of threads to use for the vanity address generator. Set this to the number of CPUs you have")
                 .takes_value(true)
                 .default_value("1"))
+        .arg(Arg::with_name("diversified_addresses")
+                .long("diversified_addresses")
+                .help("Generate diversified addresses, all of them sharing the same private key.")
+                .takes_value(true)
+                .default_value("0"))
         .arg(Arg::with_name("t_addresses")
                 .short("t")
                 .long("taddrs")
@@ -98,6 +103,12 @@ fn main() {
 
     // Number of z addresses to generate
     let z_addresses = matches.value_of("z_addresses").unwrap().parse::<u32>().unwrap();    
+
+    let daddrs = matches.value_of("diversified_addresses").unwrap().parse::<u32>().unwrap();
+    if (daddrs > 0) {
+        diversified_address(false, &[]);
+        return;
+    }
 
     let addresses = if !matches.value_of("vanity").is_none() {
         if z_addresses != 1 {
