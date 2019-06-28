@@ -3,7 +3,6 @@ use hex;
 use secp256k1;
 use ripemd160::{Ripemd160, Digest};
 use base58::{ToBase58};
-use zip32::{ChildIndex, ExtendedSpendingKey, ExtendedFullViewingKey};
 use bech32::{Bech32, u5, ToBase32};
 use rand::{Rng, ChaChaRng, FromEntropy, SeedableRng};
 use json::{array, object};
@@ -15,6 +14,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime};
 use zip32::{DiversifierIndex, DiversifierKey};
+use zip32::{ChildIndex, ExtendedSpendingKey, ExtendedFullViewingKey};
 
 /// A trait for converting a [u8] to base58 encoded string.
 pub trait ToBase58Check {
@@ -91,6 +91,7 @@ pub fn increment(s: &mut [u8; 32]) -> Result<(), ()> {
     Err(())
 }
 
+// Turn the prefix into Vec<u5>, so it can be matched directly without any encoding overhead.
 fn get_bech32_for_prefix(prefix: String) -> Result<Vec<u5>, String> {
     // Reverse character set. Maps ASCII byte -> CHARSET index on [0,31]
     const CHARSET_REV: [i8; 128] = [
@@ -107,7 +108,7 @@ fn get_bech32_for_prefix(prefix: String) -> Result<Vec<u5>, String> {
     let mut ans = Vec::new();
     for c in prefix.chars() {
         if CHARSET_REV[c as usize] == -1 {
-            return Err(format!("Invalid character in prefix: {}", c));
+            return Err(format!("Invalid character in prefix: '{}'", c));
         }
         ans.push(u5::try_from_u8(CHARSET_REV[c as usize] as u8).expect("Should be able to convert to u5"));
     }
@@ -115,26 +116,20 @@ fn get_bech32_for_prefix(prefix: String) -> Result<Vec<u5>, String> {
     return Ok(ans);
 }
 
-
+/// A single thread that grinds through the Diversifiers to find the defualt key that matches the prefix
 pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc::Sender<String>, please_stop: Arc<AtomicBool>) {
     
     let mut seed: [u8; 32] = [0; 32];
     seed.copy_from_slice(&entropy[0..32]);
 
     let di = DiversifierIndex::new();
-    let vanity_bytes = match get_bech32_for_prefix(prefix) {
-        Ok(v) => v,
-        Err(e) => { 
-            eprintln!("Disallowed character in prefix. Note that ['b', 'i', 'o', '1'] are not allowed in addresses. Error was {}", e);
-            return;
-        }
-    };
+    let vanity_bytes = get_bech32_for_prefix(prefix).expect("Bad char in prefix");
 
-    let spk2 = ExtendedSpendingKey::from_path(&ExtendedSpendingKey::master(&seed),
+    let master_spk = ExtendedSpendingKey::from_path(&ExtendedSpendingKey::master(&seed),
                             &[ChildIndex::Hardened(32), ChildIndex::Hardened(params(is_testnet).cointype), ChildIndex::Hardened(0)]);
 
     let mut spkv = vec![];
-    spk2.write(&mut spkv).unwrap();
+    master_spk.write(&mut spkv).unwrap();
 
     let mut i: u32 = 0;
     loop {
@@ -548,6 +543,32 @@ mod tests {
             assert_eq!(j[num as usize]["address"], i["addr"]);
             assert_eq!(j[num as usize]["private_key"], i["pk"]);
         }
+    }
+
+    #[test]
+    fn test_vanity() {
+        use crate::paper::generate_vanity_wallet;
+
+        // Single thread
+        let td = json::parse(&generate_vanity_wallet(false, 1, "te".to_string()).unwrap()).unwrap();
+        assert_eq!(td.len(), 1);
+        assert!(td[0]["address"].as_str().unwrap().starts_with("zs1te"));
+
+        // Multi thread
+        let td = json::parse(&generate_vanity_wallet(false, 4, "tt".to_string()).unwrap()).unwrap();
+        assert_eq!(td.len(), 1);
+        assert!(td[0]["address"].as_str().unwrap().starts_with("zs1tt"));
+
+        // Testnet
+        let td = json::parse(&generate_vanity_wallet(true, 4, "ts".to_string()).unwrap()).unwrap();
+        assert_eq!(td.len(), 1);
+        assert!(td[0]["address"].as_str().unwrap().starts_with("ztestsapling1ts"));
+
+        // Test for invalid chars
+        generate_vanity_wallet(false, 1, "b".to_string()).expect_err("b is not allowed");
+        generate_vanity_wallet(false, 1, "o".to_string()).expect_err("o is not allowed");
+        generate_vanity_wallet(false, 1, "i".to_string()).expect_err("i is not allowed");
+        generate_vanity_wallet(false, 1, "1".to_string()).expect_err("1 is not allowed");
     }
 
     #[test]

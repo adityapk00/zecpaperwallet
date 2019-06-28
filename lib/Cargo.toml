@@ -8,7 +8,7 @@ edition = "2018"
 rand = "0.5"
 hex = "0.3"
 bech32 = "0.6"
-zip32 = {  path = "../../librustzcash/zip32" }
+zip32 = {  git = "https://github.com/adityapk00/librustzcash", branch = "forked/paperpub" }
 json = "0.11.14"    
 qrcode = { version = "0.8", default-features = false }
 printpdf = "0.2.8"
