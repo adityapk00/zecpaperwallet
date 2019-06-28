@@ -116,6 +116,30 @@ fn get_bech32_for_prefix(prefix: String) -> Result<Vec<u5>, String> {
     return Ok(ans);
 }
 
+fn encode_address(spk: &ExtendedSpendingKey, is_testnet: bool) -> String {
+    let (_d, addr) = spk.default_address().expect("Cannot get result");
+
+    // Address is encoded as a bech32 string
+    let mut v = vec![0; 43];
+
+    v.get_mut(..11).unwrap().copy_from_slice(&addr.diversifier.0);
+    addr.pk_d.write(v.get_mut(11..).unwrap()).expect("Cannot write!");
+    let checked_data: Vec<u5> = v.to_base32();
+    let encoded : String = Bech32::new(params(is_testnet).zaddress_prefix.into(), checked_data).expect("bech32 failed").to_string();
+    
+    return encoded;
+}
+
+fn encode_privatekey(spk: &ExtendedSpendingKey, is_testnet: bool) -> String {
+    // Private Key is encoded as bech32 string
+    let mut vp = Vec::new();
+    spk.write(&mut vp).expect("Can't write private key");
+    let c_d: Vec<u5> = vp.to_base32();
+    let encoded_pk = Bech32::new(params(is_testnet).zsecret_prefix.into(), c_d).expect("bech32 failed").to_string();
+
+    return encoded_pk;
+}
+
 /// A single thread that grinds through the Diversifiers to find the defualt key that matches the prefix
 pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc::Sender<String>, please_stop: Arc<AtomicBool>) {
     
@@ -154,22 +178,10 @@ pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc:
             spkv[(len-32)..len].copy_from_slice(&dk.0[0..32]);
             let spk = ExtendedSpendingKey::read(&spkv[..]).unwrap();
 
-            let (_d, addr) = spk.default_address().expect("Cannot get result");
-
-            // Address is encoded as a bech32 string
-            let mut v = vec![0; 43];
-
-            v.get_mut(..11).unwrap().copy_from_slice(&addr.diversifier.0);
-            addr.pk_d.write(v.get_mut(11..).unwrap()).expect("Cannot write!");
-            let checked_data: Vec<u5> = v.to_base32();
-            let encoded : String = Bech32::new(params(is_testnet).zaddress_prefix.into(), checked_data).expect("bech32 failed").to_string();
             
-            // Private Key is encoded as bech32 string
-            let mut vp = Vec::new();
-            spk.write(&mut vp).expect("Can't write private key");
-            let c_d: Vec<u5> = vp.to_base32();
-            let encoded_pk = Bech32::new(params(is_testnet).zsecret_prefix.into(), c_d).expect("bech32 failed").to_string();
-
+            let encoded = encode_address(&spk, is_testnet);
+            let encoded_pk = encode_privatekey(&spk, is_testnet);
+            
             let wallet = array!{object!{
                 "num"           => 0,
                 "address"       => encoded,
@@ -373,20 +385,8 @@ fn get_zaddress(is_testnet: bool, seed: &[u8], index: u32) -> (String, String, S
         "path"      => format!("m/32'/{}'/{}'", params(is_testnet).cointype, index)
     };
 
-    let (_d, addr) = spk.default_address().expect("Cannot get result");
-
-    // Address is encoded as a bech32 string
-    let mut v = vec![0; 43];
-    v.get_mut(..11).unwrap().copy_from_slice(&addr.diversifier.0);
-    addr.pk_d.write(v.get_mut(11..).unwrap()).expect("Cannot write!");
-    let checked_data: Vec<u5> = v.to_base32();
-    let encoded = Bech32::new(params(is_testnet).zaddress_prefix.into(), checked_data).expect("bech32 failed").to_string();
-
-    // Private Key is encoded as bech32 string
-    let mut vp = Vec::new();
-    spk.write(&mut vp).expect("Can't write private key");
-    let c_d: Vec<u5> = vp.to_base32();
-    let encoded_pk = Bech32::new(params(is_testnet).zsecret_prefix.into(), c_d).expect("bech32 failed").to_string();
+    let encoded = encode_address(&spk, is_testnet);
+    let encoded_pk = encode_privatekey(&spk, is_testnet);
 
     // Viewing Key is encoded as bech32 string
     let mut vv = Vec::new();
@@ -450,6 +450,42 @@ mod tests {
         assert_eq!(set1.len(), 6);
         // ...but only 1 seed
         assert_eq!(set2.len(), 1);
+    }
+
+    #[test]
+    fn test_z_encoding() {
+        use crate::paper::{encode_address, encode_privatekey};
+        use zip32::ExtendedSpendingKey;
+
+        let main_data = "[
+            {'encoded' : '037d54cb810000008079a0d98ee64814bffe3f78e0b67363bdcdfd57b6a9a8f871615884ef79a001fdc59be1b24f5d75beed619d2eb3722a5f7f9d9c9e13f6c0218cd10bffe5ec0c0b21d65ad27ac913dfcd2d40425345d49c09e4fed60555a5f3346d76ed45906004f4c2cc6098f0780b9adaa0b1636976dcd8d6311812ef42f073d506ae19bbe4ff7501070410c512af68ed0141e146c69af666fe2efdeb804df33e3304ce07a0bb', 'address' : 'zs1ttwlzs7nnmdwmx7eag3k4szxzvsa82ttsakmux5zk0y9vcqp4jguecn5rqkjjdae2pgzcta4vkt', 'pk' : 'secret-extended-key-main1qd74fjupqqqqpqre5rvcaejgzjllu0mcuzm8xcaaeh740d4f4ru8zc2csnhhngqplhzehcdjfawht0hdvxwjavmj9f0hl8vuncfldspp3ngshll9asxqkgwkttf84jgnmlxj6szz2dzaf8qfunldvp245hengmtka4zeqcqy7npvccyc7puqhxk65zckx6tkmnvdvvgczth59urn65r2uxdmunlh2qg8qsgv2y40drkszs0pgmrf4anxlch0m6uqfhenuvcyecr6pwcvt7qwu'}, 
+            {'encoded' : '03747bda750000008090dd234894f208a53bec30461e9a1abe6c9ecce833b2110132576d4b135dee0cd328312ba73ae04a05e79fd81ba7d57bb4bc0a9a7a7a11ca904b604f9be62f0ea011906ac33e3dbbc0983228ed3c334373873d6bc309054c24538c93c3677e0332c848dadbee9308fe0d37241aa6e34541e3837a272a4d08e30ac1470ef389c46370ae1ca72bb87488bcfa8cb26040604ef3dd8c2a8590e3f05ee771ba6d7e89', 'address' : 'zs1ttryt8fh0hu74upauprpglddcm3avmclnr2ywsxzhpqgchcd29xyqtvpqx7wktvx94cg6522ldy', 'pk' : 'secret-extended-key-main1qd68hkn4qqqqpqysm535398jpzjnhmpsgc0f5x47dj0ve6pnkggszvjhd493xh0wpnfjsvft5uawqjs9u70asxa864amf0q2nfa85yw2jp9kqnumuchsagq3jp4vx03ah0qfsv3ga57rxsmnsu7khscfq4xzg5uvj0pkwlsrxtyy3kkma6fs3lsdxujp4fhrg4q78qm6yu4y6z8rptq5wrhn38zxxu9wrjnjhwr53z704r9jvpqxqnhnmkxz4pvsu0c9aem3hfkhazgksps0h'}
+        ]";
+
+        let j = json::parse(&main_data.replace("'", "\"")).unwrap();
+        for i in j.members() {
+            let e = hex::decode(i["encoded"].as_str().unwrap()).unwrap();
+            let spk = ExtendedSpendingKey::read(&e[..]).unwrap();
+
+            assert_eq!(encode_address(&spk, false), i["address"]);
+            assert_eq!(encode_privatekey(&spk, false), i["pk"]);
+        }
+
+        let test_data = "[
+            {'encoded' : '03f577d7b800000080b9ae0ce9f44f7b3550e14f4662e91270b04b265ff4ba4546be72feef91b38d3397b3d25a79d67fa024a1b0d3f4d5143eff3e410c300bf615090dbdbddea6b70302bb8b73449cafa1ce1862bd4af31db2d468e39c451cfb026128ea3abe6b820ccb1b8e3a4e6faccef50f9f3c02a5cd55d9faebc4939d6d5f5271b8a66d73f443ec546c3cf583dccfed7994e856cd462a0a199cf6c89bdbe6b38c721dc07637ea', 'address' : 'ztestsapling1tsurvgycuy5me2nds2jpug806nr954ts3h3mf2de925qp8t9tyhvg0sfhe0qp3jf02vfxk3thn0', 'pk' : 'secret-extended-key-test1q06h04acqqqqpq9e4cxwnaz00v64pc20ge3wjynskp9jvhl5hfz5d0njlmhervudxwtm85j608t8lgpy5xcd8ax4zsl070jppscqhas4pyxmm0w756msxq4m3de5f890588psc4afte3mvk5dr3ec3gulvpxz28282lxhqsvevdcuwjwd7kvaag0nu7q9fwd2hvl467yjwwk6h6jwxu2vmtn73p7c4rv8n6c8hx0a4uef6zke4rz5zsennmv3x7mu6eccusacpmr06sjxk88k'},
+            {'encoded' : '036b781dfd000000808956fba285802d5cebf5a24142c957877fa9a6182c57d24ab394e47eafc6c781750bcb2630ce11a90faf0e976d3898255a509e049d2332de9f332e254e91770ce45c085da9b55e108b5eaef45e68ab32bb9e461fe2356ea375258377044d190b1a630c1d1471d6cbc98b9e6dc779472a797d3cfcaf3dfbe5e878dbeae58e8a48347e48cf93de87f63aa3803556e9632e97a27374aef2988205ddcf69da12c95e', 'address' : 'ztestsapling1tscd2ap27tt4eg42m3k76ahg9gxgqf0lk8ls2tsxegkf7s050v9agccg0jg2s4ja4vkvccas270', 'pk' : 'secret-extended-key-test1qd4hs80aqqqqpqyf2ma69pvq94wwhadzg9pvj4u80756vxpv2lfy4vu5u3l2l3k8s96shjexxr8pr2g04u8fwmfcnqj455y7qjwjxvk7nuejuf2wj9mseezuppw6nd27zz94ath5te52kv4mnerplc34d63h2fvrwuzy6xgtrf3sc8g5w8tvhjvtnekuw7289fuh608u4u7lhe0g0rd74evw3fyrgljge7faaplk823cqd2ka93ja9azwd62au5csgzamnmfmgfvjhs68k0x5'},
+            {'encoded' : '033d5066140000008099cfb65ab46e5a0e3f6891c1480fdb2f36f2fa02d75cfebb04e06513e4eaa148978f54f4e9fee05464a1574debae01ec1bd53c4c7ac4fd49414e4ab05b18a502c420031918f93c8756f054cdd134dabf36941b59f839761f2339b9d88a2d68073e53dce94d94c5118141179d1fb38f62705a3c1d27d2bb86bd0824cf72ac07d2095a13bd31975c706a7ec3e65310851363c658b76f3ac45484b4015ae93f0556', 'address' : 'ztestsapling1ts9afgw2k67qewv7wr08upf4wxe3m82u6fz432jpar7h48k60w4ksuereawhszsd0xvjyc5a5u0', 'pk' : 'secret-extended-key-test1qv74qes5qqqqpqyee7m94drwtg8r76y3c9yqlke0xme05qkhtnltkp8qv5f7f64pfztc7485a8lwq4ry59t5m6awq8kph4fuf3avfl2fg98y4vzmrzjs93pqqvv337fusat0q4xd6y6d40ekjsd4n7pewc0jxwdemz9z66q88efae62djnz3rq2pz7w3lvu0vfc950qaylfthp4apqjv7u4vqlfqjksnh5cewhrsdflv8ejnzzz3xc7xtzmk7wky2jztgq26ayls24srxx9hw'},
+            {'encoded' : '03a19d13b700000080ff5f4ec78697bd786cb6dfe2e8cc57fd9cd4ad7f87bb9a92607cbf23122082e6c00e3eceb438a739738262e1ac3eabdb1d9c0a44b45b759939d159739b29880ba4437024a134269e16cd9a859f86854d5ea237e542f700805364a6d0515ac70a2fed943bef0430025c4d2895b780bbe08c659e37f3d60336c1cbc0bb17bb2488d7c6b55585b0743600826e333bd058b3fed68b02228efaa94b0f6eadf0fc7b68', 'address' : 'ztestsapling1ts8mqy2kvn7j3ktj9ean07tl0wktqnv6e5amrv92x2yenlx4hxc6tmktewc79mk0wlmkxh9fh4q', 'pk' : 'secret-extended-key-test1qwse6yahqqqqpq8lta8v0p5hh4uxedklut5vc4lann226lu8hwdfycruhu33ygyzumqqu0kwksu2wwtnsf3wrtp740d3m8q2gj69kave88g4juum9xyqhfzrwqj2zdpxnctvmx59n7rg2n275gm72shhqzq9xe9x6pg443c29lkegwl0qscqyhzd9z2m0q9muzxxt83h70tqxdkpe0qtk9amyjyd03442kzmqapkqzpxuvem6pvt8lkk3vpz9rh6499s7m4d7r78k6qa4j49t'}
+        ]";
+
+        let j = json::parse(&test_data.replace("'", "\"")).unwrap();
+        for i in j.members() {
+            let e = hex::decode(i["encoded"].as_str().unwrap()).unwrap();
+            let spk = ExtendedSpendingKey::read(&e[..]).unwrap();
+
+            assert_eq!(encode_address(&spk, true), i["address"]);
+            assert_eq!(encode_privatekey(&spk, true), i["pk"]);
+        }
     }
 
     #[test]
