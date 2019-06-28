@@ -141,8 +141,8 @@ fn encode_privatekey(spk: &ExtendedSpendingKey, is_testnet: bool) -> String {
 }
 
 pub fn diversified_address(is_testnet: bool, entropy: &[u8]) {
-
     let mut seed: [u8; 32] = [0; 32];
+    seed.copy_from_slice(&entropy[0..32]);
 
     let spk = ExtendedSpendingKey::from_path(&ExtendedSpendingKey::master(&seed),
                             &[ChildIndex::Hardened(32), ChildIndex::Hardened(params(is_testnet).cointype), ChildIndex::Hardened(0)]);
@@ -165,7 +165,8 @@ pub fn diversified_address(is_testnet: bool, entropy: &[u8]) {
     di.increment().unwrap();
 
     {
-        let (di, addr) = ExtendedFullViewingKey::from(&spk).address(di).unwrap();
+        let (din, addr) = ExtendedFullViewingKey::from(&spk).address(di).unwrap();
+        di = din;
 
         // Address is encoded as a bech32 string
         let mut v = vec![0; 43];
@@ -177,6 +178,12 @@ pub fn diversified_address(is_testnet: bool, entropy: &[u8]) {
         println!("Address 2 {}", encoded);
     }
   
+    // Private Key is encoded as bech32 string
+    let mut vp = Vec::new();
+    spk.write(&mut vp).expect("Can't write private key");
+    let c_d: Vec<u5> = vp.to_base32();
+    let encoded_pk = Bech32::new(params(is_testnet).zsecret_prefix.into(), c_d).expect("bech32 failed").to_string();
+
     println!("Private key {}", encoded_pk);
 }
 
