@@ -204,6 +204,34 @@ pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc:
     }
 }
 
+fn pretty_duration(secs: f64) -> (String, String) {
+    let mut expected_dur  = "sec";
+    let mut expected_time = secs;
+
+    if expected_time > 60.0 {
+        expected_time /= 60.0;
+        expected_dur = "min";
+    }
+    if expected_time > 60.0 {
+        expected_time /= 60.0;
+        expected_dur = "hours";
+    }
+    if expected_time > 24.0 {
+        expected_time /= 24.0;
+        expected_dur = "days";
+    }
+    if expected_time > 30.0 {
+        expected_time /= 30.0;
+        expected_dur = "months";
+    }
+    if expected_time > 12.0 {
+        expected_time /= 12.0;
+        expected_dur = "years";
+    }
+
+    return (format!("{:.*}", 0, expected_time), expected_dur.to_string());
+}
+
 /// Generate a vanity address with the given prefix.
 pub fn generate_vanity_wallet(is_testnet: bool, num_threads: u32, prefix: String) -> Result<String, String> {
     // Test the prefix first
@@ -240,13 +268,21 @@ pub fn generate_vanity_wallet(is_testnet: bool, num_threads: u32, prefix: String
 
     let mut wallet: String;
 
+    // Calculate the estimated time
+    let expected_combinations = (32 as f64).powf(prefix.len() as f64);
+
     loop {
         let recv = rx.recv().unwrap();
         if recv.starts_with(&"Processed") {
             processed = processed + 5000;
             let timeelapsed = now.elapsed().unwrap().as_secs() + 1; // Add one second to prevent any divide by zero problems.
 
-            print!("Checking addresses at {}/sec on {} CPU threads\r", (processed / timeelapsed), num_threads);
+            let rate = processed / timeelapsed;            
+            let expected_secs = expected_combinations / (rate as f64);
+
+            let (s, d) = pretty_duration(expected_secs);
+
+            print!("Checking addresses at {}/sec on {} CPU threads. [50% ETA = {} {}]   \r", rate, num_threads, s, d);
             io::stdout().flush().ok().unwrap();
         } else {
             // Found a solution
