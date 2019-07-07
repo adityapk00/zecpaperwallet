@@ -9,11 +9,11 @@ var address_number = 0;
 function add_section(wallet_item) {
     let htmls = `
         <div class="row address-section">
-            <div class="col-md-9">
+            <div class="col-sm-9" style="word-break: break-word;">
                 <h1> Address (Sapling) </h1>
                 <p class="fixed-width"> ${wallet_item["address"]} </p>
             </div>
-            <div class="col-md-3">
+            <div class="col-sm-3">
                 <canvas id="qrcode_addr_${address_number}"></canvas>
             </div>
         </div>
@@ -28,10 +28,10 @@ function add_section(wallet_item) {
     let pk_section = `
         <div class="row pk-section">
             <div class="h-dashed"></div>
-            <div class="col-md-3">
+            <div class="col-sm-3">
                 <canvas id="qrcode_pk_${address_number}"></canvas>
             </div>
-            <div class="col-md-9" style="word-break: break-word;">
+            <div class="col-sm-9" style="word-break: break-word;">
                 <h1> Private Key </h1>
                 <p class="fixed-width"> ${wallet_item["private_key"]} </p>
                 <br/>

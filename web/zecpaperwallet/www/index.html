@@ -12,6 +12,16 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
     
     <style type="text/css">
+      @media print {
+        @page {
+          size: 330mm 427mm;
+          margin: 14mm;
+        }
+        .container {
+          width: 1200px;
+        }
+      }
+ 
       .h-divider{
         margin-top:5px;
         margin-bottom:15px;
@@ -59,11 +69,22 @@
         </div>
       </div>
         
-      <div class="panel panel-primary">
-        <div class="panel-heading">
-          <h1 class="panel-title">Zcash Sapling Paper Wallet</h1>
+      <div id="result-panel">
+        <div class="panel panel-primary">
+          <div class="panel-heading">
+            <h1 class="panel-title">Zcash Sapling Paper Wallet</h1>
+          </div>
+          <div class="panel-body" id="wallet">
+          </div>
         </div>
-        <div class="panel-body" id="wallet">
+      </div>
+
+      <div class="row">
+        <div class="col-sm-1 col-sm-offset-5">
+          <button class="btn btn-default">Reset</button>
+        </div>
+        <div class="col-sm-1">
+          <button class="btn btn-success">Print</button>
         </div>
       </div>
     </div>
