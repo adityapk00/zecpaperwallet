@@ -38,7 +38,7 @@ fn main() {
                 .long("entropy")
                 .takes_value(true)
                 .help("Provide additional entropy to the random number generator. Any random string, containing 32-64 characters"))
-        .arg(Arg::with_name("vanity")
+        .arg(Arg::with_name("vanity_prefix")
                 .long("vanity")
                 .help("Generate a vanity address with the given prefix")
                 .takes_value(true))
@@ -99,7 +99,7 @@ fn main() {
     // Number of z addresses to generate
     let z_addresses = matches.value_of("z_addresses").unwrap().parse::<u32>().unwrap();    
 
-    let addresses = if !matches.value_of("vanity").is_none() {
+    let addresses = if !matches.value_of("vanity_prefix").is_none() {
         if z_addresses != 1 {
             eprintln!("Can only generate 1 zaddress in vanity mode. You specified {}", z_addresses);
             return;
@@ -112,7 +112,7 @@ fn main() {
 
         let num_threads = matches.value_of("threads").unwrap().parse::<u32>().unwrap();
 
-        let prefix = matches.value_of("vanity").unwrap().to_string();
+        let prefix = matches.value_of("vanity_prefix").unwrap().to_string();
         println!("Generating address starting with \"{}\"", prefix);
         let addresses = match generate_vanity_wallet(is_testnet, num_threads, prefix) {
             Ok(w) => w,
