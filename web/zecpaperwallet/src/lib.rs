@@ -15,8 +15,9 @@ extern {
 }
 
 #[wasm_bindgen]
-pub fn greet() {
+pub fn greet() -> String {
     let w = generate_wallet(false, false, 1, 0, &[]);
 
-    alert(&format!("Hello, zecpaperwallet! {}\n", w));
+    // alert(&format!("Hello, zecpaperwallet! {}\n", w));
+    return w;
 }
