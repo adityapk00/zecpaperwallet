@@ -10,19 +10,60 @@
 
     <!-- Optional theme -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    
+    <style type="text/css">
+      .h-divider{
+        margin-top:5px;
+        margin-bottom:15px;
+        height:1px;
+        width:100%;
+        border-top:1px solid black;
+      }
 
-    <title>Hello wasm-pack!</title>
+      .h-dashed {
+        height:1px;
+        width:100%;
+        border-top:1px dashed gray;
+      }
+
+      .fixed-width {
+        font-family: monospace;
+        font-size: 1.2em;
+      }
+
+      .pk-section canvas {
+        margin-top: 30px;
+      }
+
+      .address-section h1 {
+        padding-top: 30px;
+        padding-left: 20px
+      }
+
+      .address-section p {
+        padding-left: 20px;
+      }
+      </style>
+
+    <title>zecpaperwallet Web!</title>
   </head>
   <body>
     <script src="./bootstrap.js"></script>
 
     <div class="container">
-      <div class="row">
-        <div class="col-md-1 col-md-offset-4">
-          Hello World
+      <div class="row>">
+        <div class="alert alert-danger" role="alert">
+            <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+            <span class="sr-only">Error:</span>
+            For informational purposes only. For serious wallets, please run <code>zecpaperwallet</code> offline on an air-gapped computer.
         </div>
-        <div class="col-md-1">
-          <canvas id="qr1"></canvas>
+      </div>
+        
+      <div class="panel panel-primary">
+        <div class="panel-heading">
+          <h1 class="panel-title">Zcash Sapling Paper Wallet</h1>
+        </div>
+        <div class="panel-body" id="wallet">
         </div>
       </div>
     </div>

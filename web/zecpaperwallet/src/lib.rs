@@ -9,15 +9,9 @@ use wasm_bindgen::prelude::*;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-#[wasm_bindgen]
-extern {
-    fn alert(s: &str);
-}
 
 #[wasm_bindgen]
-pub fn greet() -> String {
-    let w = generate_wallet(false, false, 1, 0, &[]);
-
-    // alert(&format!("Hello, zecpaperwallet! {}\n", w));
+pub fn get_wallet() -> String {
+    let w = generate_wallet(false, false, 2, 0, &[]);
     return w;
 }
