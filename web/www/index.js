@@ -52,11 +52,54 @@ function add_section(wallet_item) {
     address_number++;
 }
 
-let w = JSON.parse(wasm.get_wallet());
-console.log(w);
+var user_entropy = "";
 
-w.forEach(wallet_item => {
-    add_section(wallet_item); 
+function update_user_entropy() {
+    let valeur = (user_entropy.length / 2) / 32 * 100; // hex is 2 chars per byte
+    if (valeur > 100) {
+        valeur = 100;
+        if (jQuery("#generate_button").hasClass("btn-warning")) {
+            jQuery("#generate_button").removeClass("btn-warning");
+            jQuery("#generate_button").addClass("btn-success");
+        }
+        if (!jQuery("#entropy_bar").hasClass("progress-bar-success")) {
+            jQuery("#entropy_bar").addClass("progress-bar-success");
+        }
+    }
+
+    jQuery('#entropy_bar').css('width', valeur+'%').attr('aria-valuenow', valeur); 
+}
+
+// Mouse move for entropy collection
+var mouse_count = 0;
+jQuery("body").mousemove(function(e) {
+    if (mouse_count++ % 5 > 0) return;
+
+    user_entropy += ((e.originalEvent.clientX + e.originalEvent.clientY) % 16).toString(16);
+    update_user_entropy();
 });
- 
+
+jQuery("#keyboard_entropy").keypress(function (e) {
+    user_entropy += (e.originalEvent.charCode % 32).toString(16);
+    update_user_entropy();
+});
+
+jQuery("#generate_button").click(function (e) {
+    jQuery("#configdialog").modal('hide');
+});
+
+// First trigger the modal
+jQuery("#configdialog").modal({
+    keyboard: false
+});
+
+jQuery("#configdialog").on("hidden.bs.modal", function (e) {        
+    let w = JSON.parse(wasm.get_wallet(user_entropy));
+    console.log(w);
+
+    w.forEach(wallet_item => {
+        add_section(wallet_item); 
+    });    
+});
+
 

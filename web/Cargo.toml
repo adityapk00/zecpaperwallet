@@ -11,8 +11,9 @@ crate-type = ["cdylib", "rlib"]
 default = ["console_error_panic_hook"]
 
 [dependencies]
+sha2 = "0.8.0"
 wasm-bindgen = "0.2"
-zecpaperlib = { path = "../../lib", default-features = false }
+zecpaperlib = { path = "../lib", default-features = false }
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
