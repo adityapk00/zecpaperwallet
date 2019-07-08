@@ -88,6 +88,17 @@ jQuery("#generate_button").click(function (e) {
     jQuery("#configdialog").modal('hide');
 });
 
+jQuery("#reset_button").click(function (e) {
+    user_entropy = "";
+    jQuery("#wallet").empty();
+
+    jQuery("#configdialog").modal('show');
+});
+
+jQuery("#print_button").click(function (e) {
+    window.print();
+});
+
 // First trigger the modal
 jQuery("#configdialog").modal({
     keyboard: false
