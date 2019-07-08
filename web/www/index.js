@@ -123,5 +123,3 @@ jQuery("#configdialog").on("hidden.bs.modal", function (e) {
         add_section(wallet_item); 
     });    
 });
-
-

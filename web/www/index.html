@@ -107,7 +107,7 @@
           <div class="modal-body">
             <div class="form-group">
                 <label for="numAddresses">Number of Addresses</label>
-                <input type="text" class="form-control" id="numAddresses" value="2">
+                <input type="text" class="form-control" id="numAddresses" value="2" onkeypress="if ( isNaN( String.fromCharCode(event.keyCode) )) return false;">
               </div>
             <p>Move around your mouse or type random characters
               into the box below until the bar is full.
