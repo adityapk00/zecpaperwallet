@@ -117,9 +117,16 @@ jQuery("#configdialog").on("hidden.bs.modal", function (e) {
 
     let numAddresses = jQuery("#numAddresses").val();
 
-    let w = JSON.parse(wasm.get_wallet(numAddresses, user_entropy + system_entropy));
+    jQuery("#pleasewait").modal('show');
+
+    // Run this async so that the please wait dialog can show
+    setTimeout(() => {
+        let w = JSON.parse(wasm.get_wallet(numAddresses, user_entropy + system_entropy));
     
-    w.forEach(wallet_item => {
-        add_section(wallet_item); 
-    });    
+        w.forEach(wallet_item => {
+            add_section(wallet_item); 
+        });    
+        jQuery("#pleasewait").modal("hide");
+    }, 1);
+    
 });
