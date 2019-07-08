@@ -1,17 +1,16 @@
 use std::thread;
 use hex;
-use secp256k1;
-use ripemd160::{Ripemd160, Digest};
 use base58::{ToBase58};
 use bech32::{Bech32, u5, ToBase32};
 use rand::{Rng, ChaChaRng, FromEntropy, SeedableRng};
 use json::{array, object};
-use sha2;
+use sha2::{Sha256, Digest};
 use std::io;
 use std::io::Write;
 use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::panic;
 use std::time::{SystemTime};
 use zip32::{DiversifierIndex, DiversifierKey};
 use zip32::{ChildIndex, ExtendedSpendingKey, ExtendedFullViewingKey};
@@ -39,9 +38,9 @@ impl ToBase58Check for [u8] {
 }
 
 /// Sha256(Sha256(value))
-fn double_sha256(payload: &[u8]) -> Vec<u8> {
-    let h1 = sha2::Sha256::digest(&payload);
-    let h2 = sha2::Sha256::digest(&h1);
+pub fn double_sha256(payload: &[u8]) -> Vec<u8> {
+    let h1 = Sha256::digest(&payload);
+    let h2 = Sha256::digest(&h1);
     h2.to_vec()
 }
 
@@ -306,9 +305,18 @@ pub fn generate_wallet(is_testnet: bool, nohd: bool, zcount: u32, tcount: u32, u
     // Get 32 bytes of system entropy
     let mut system_entropy:[u8; 32] = [0; 32]; 
     {
-        let mut system_rng = ChaChaRng::from_entropy();    
+        let result = panic::catch_unwind(|| {
+            //ChaChaRng::from_entropy()
+            ChaChaRng::from_seed([0; 32])
+        });
+
+        let mut system_rng = match result {
+            Ok(rng)     => rng,
+            Err(_e)     => ChaChaRng::from_seed([0; 32])
+        };
+
         system_rng.fill(&mut system_entropy);
-    }
+    }    
 
     // Add in user entropy to the system entropy, and produce a 32 byte hash... 
     let mut state = sha2::Sha256::new();
@@ -356,9 +364,6 @@ fn gen_addresses_with_seed_as_json<F>(is_testnet: bool, zcount: u32, tcount: u32
     let mut rng_seed: [u8; 32] = [0; 32];
     rng_seed.clone_from_slice(&seed[0..32]);
     
-    // derive a RNG from the seed
-    let mut rng = ChaChaRng::from_seed(rng_seed);
-
     // First generate the Z addresses
     for i in 0..zcount {
         let (seed, child) = get_seed(i);
@@ -373,22 +378,32 @@ fn gen_addresses_with_seed_as_json<F>(is_testnet: bool, zcount: u32, tcount: u32
     }      
 
     // Next generate the T addresses
-    for i in 0..tcount {        
-        let (addr, pk_wif) = get_taddress(is_testnet, &mut rng);
+    #[cfg(feature = "secp256k1")]
+    {
+        // derive a RNG from the seed
+        let mut rng = ChaChaRng::from_seed(rng_seed);
 
-        ans.push(object!{
-            "num"               => i,
-            "address"           => addr,
-            "private_key"       => pk_wif,
-            "type"              => "taddr"
-        }).unwrap();
+        for i in 0..tcount {        
+            let (addr, pk_wif) = get_taddress(is_testnet, &mut rng);
+
+            ans.push(object!{
+                "num"               => i,
+                "address"           => addr,
+                "private_key"       => pk_wif,
+                "type"              => "taddr"
+            }).unwrap();
+        }
     }
 
     return json::stringify_pretty(ans, 2);
 }
 
 /// Generate a t address
+#[cfg(feature = "secp256k1")]
 fn get_taddress(is_testnet: bool, mut rng: &mut ChaChaRng) -> (String, String) {
+    use secp256k1;
+    use ripemd160::{Ripemd160, Digest};
+
     // SECP256k1 context
     let ctx = secp256k1::Secp256k1::default();
 

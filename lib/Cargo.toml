@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["ZecWallet"]
 edition = "2018"
 
+[features]
+default = ["printpdf", "secp256k1"]
+
 [dependencies]
 rand = "0.5"
 hex = "0.3"
@@ -11,8 +14,8 @@ bech32 = "0.6"
 zip32 = {  git = "https://github.com/adityapk00/librustzcash", branch = "forked/paperpub" }
 json = "0.11.14"    
 qrcode = { version = "0.8", default-features = false }
-printpdf = "0.2.8"
-secp256k1 = { version = "0.13.0", features = ["rand"] }
+printpdf = { version = "0.2.8", optional = true }
+secp256k1 = { version = "0.13.0", features = ["rand"], optional = true }
 ripemd160 = "0.8.0"
 sha2 = "0.8.0"
 base58 = "0.1.0"

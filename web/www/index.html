@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    
+    <style type="text/css">
+      @media print {
+        @page {
+          size: 330mm 427mm;
+          margin: 14mm;
+        }
+        
+        .page-break {page-break-after: always;}
+}
+        .container {
+          width: 1200px;
+        }
+      }
+ 
+      .h-divider{
+        margin-top:5px;
+        margin-bottom:15px;
+        height:1px;
+        width:100%;
+        border-top:1px solid black;
+      }
+
+      .h-dashed {
+        height:1px;
+        width:100%;
+        border-top:1px dashed gray;
+      }
+
+      .fixed-width {
+        font-family: monospace;
+        font-size: 1.2em;
+      }
+
+      .pk-section canvas {
+        margin-top: 30px;
+      }
+
+      .address-section h1 {
+        padding-top: 30px;
+        padding-left: 20px
+      }
+
+      .address-section p {
+        padding-left: 20px;
+      }
+      </style>
+
+    <title>zecpaperwallet Web!</title>
+  </head>
+  <body>
+    <script src="./bootstrap.js"></script>
+
+    <nav class="navbar navbar-default">
+      <div class="container">
+        <div class="navbar-header">
+          <h1>ZecPaperWallet - Zcash Sapling Paper Wallet Generator</h1>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container">
+      <div class="row>">
+        <div class="alert alert-warning" role="alert">
+            <span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+            <span class="sr-only">Error:</span>
+            For informational purposes only. For serious wallets, please run <a target="_blank" href="https://github.com/adityapk00/zecpaperwallet"><code>zecpaperwallet</code></a> offline on an air-gapped computer.
+        </div>
+      </div>
+        
+      <div id="result-panel">
+        <div class="panel panel-primary">
+          <div class="panel-heading">
+            <h1 class="panel-title">Zcash Sapling Paper Wallet</h1>
+          </div>
+          <div class="panel-body" id="wallet">
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-sm-1 col-sm-offset-5">
+          <button type="button" id="reset_button" class="btn btn-warning">Reset</button>
+        </div>
+        <div class="col-sm-1">
+          <button type="button" id="print_button" class="btn btn-success">Print</button>
+        </div>
+      </div>
+
+      <div class="row" style="padding-top: 10px;">
+        <div class="col-sm-12">
+          <div class="well">
+            Copyright &copy; 2019, ZecWallet.
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal" id="configdialog" tabindex="-1" role="dialog">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">ZecPaperWallet - Configure Entropy</h4>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+                <label for="numAddresses">Number of Addresses</label>
+                <input type="text" class="form-control" id="numAddresses" value="2" onkeypress="if ( isNaN( String.fromCharCode(event.keyCode) )) return false;">
+              </div>
+            <p>Move around your mouse or type random characters
+              into the box below until the bar is full.
+            </p>
+            <input type="text" id="keyboard_entropy" placeholder="entropy" style="width: 100%"/>
+            <hr/>
+            <p>Collected Entropy:</p>
+            <div class="progress">
+              <div class="progress-bar" id="entropy_bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="generate_button" class="btn btn-warning">Generate >></button>
+          </div>
+        </div><!-- /.modal-content -->
+      </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
+
+    <div class="modal" id="pleasewait" tabindex="-1" role="dialog">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Generating Wallet</h4>
+          </div>
+          <div class="modal-body">
+            <p>Generating wallet. Please wait&hellip;</p>
+          </div>
+        </div><!-- /.modal-content -->
+      </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
+
+
+  </body>
+</html>
