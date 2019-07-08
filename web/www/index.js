@@ -5,7 +5,6 @@ var QRCode = require('qrcode')
 import * as wasm from "zecpaperwallet";
 
 var address_number = 0;
-
 function add_section(wallet_item) {
     let htmls = `
         <div class="row address-section">
@@ -50,6 +49,10 @@ function add_section(wallet_item) {
         });
 
     address_number++;
+
+    if (address_number % 2 == 0) {
+        jQuery("#wallet").append("<div class='page-break'></div>");
+    }
 }
 
 var user_entropy = "";
@@ -91,6 +94,12 @@ jQuery("#generate_button").click(function (e) {
 jQuery("#reset_button").click(function (e) {
     user_entropy = "";
     update_user_entropy();
+
+    address_number = 0;
+
+    jQuery("#generate_button").removeClass("btn-success");
+    jQuery("#generate_button").addClass("btn-warning");
+    jQuery("#entropy_bar").removeClass("progress-bar-success");
 
     jQuery("#wallet").empty();
     jQuery("#configdialog").modal('show');
