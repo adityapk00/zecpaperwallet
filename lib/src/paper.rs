@@ -38,7 +38,7 @@ impl ToBase58Check for [u8] {
 }
 
 /// Sha256(Sha256(value))
-fn double_sha256(payload: &[u8]) -> Vec<u8> {
+pub fn double_sha256(payload: &[u8]) -> Vec<u8> {
     let h1 = Sha256::digest(&payload);
     let h2 = Sha256::digest(&h1);
     h2.to_vec()
