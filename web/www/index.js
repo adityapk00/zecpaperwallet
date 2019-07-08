@@ -90,8 +90,9 @@ jQuery("#generate_button").click(function (e) {
 
 jQuery("#reset_button").click(function (e) {
     user_entropy = "";
-    jQuery("#wallet").empty();
+    update_user_entropy();
 
+    jQuery("#wallet").empty();
     jQuery("#configdialog").modal('show');
 });
 
@@ -104,10 +105,20 @@ jQuery("#configdialog").modal({
     keyboard: false
 });
 
-jQuery("#configdialog").on("hidden.bs.modal", function (e) {        
-    let w = JSON.parse(wasm.get_wallet(user_entropy));
-    console.log(w);
+const toHexString = bytes =>
+  bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
 
+
+jQuery("#configdialog").on("hidden.bs.modal", function (e) {        
+    // Get system entropy
+    var buf = new Uint8Array(32);
+    window.crypto.getRandomValues(buf);
+    let system_entropy = toHexString(buf);
+
+    let numAddresses = jQuery("#numAddresses").val();
+
+    let w = JSON.parse(wasm.get_wallet(numAddresses, user_entropy + system_entropy));
+    
     w.forEach(wallet_item => {
         add_section(wallet_item); 
     });    
