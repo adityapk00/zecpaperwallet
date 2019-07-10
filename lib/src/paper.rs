@@ -12,8 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::panic;
 use std::time::{SystemTime};
-use zip32::{DiversifierIndex, DiversifierKey};
-use zip32::{ChildIndex, ExtendedSpendingKey, ExtendedFullViewingKey};
+use zcash_primitives::zip32::{DiversifierIndex, DiversifierKey, ChildIndex, ExtendedSpendingKey, ExtendedFullViewingKey};
 
 /// A trait for converting a [u8] to base58 encoded string.
 pub trait ToBase58Check {

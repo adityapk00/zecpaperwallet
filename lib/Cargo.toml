@@ -11,7 +11,8 @@ default = ["printpdf", "secp256k1"]
 rand = "0.5"
 hex = "0.3"
 bech32 = "0.6"
-zip32 = {  git = "https://github.com/adityapk00/librustzcash", branch = "forked/paperpub" }
+zcash_primitives = {  git = "https://github.com/adityapk00/librustzcash", branch = "paperwallet" }
+#zcash_primitives = { path = "../../librustzcash/zcash_primitives" }
 json = "0.11.14"    
 qrcode = { version = "0.8", default-features = false }
 printpdf = { version = "0.2.8", optional = true }
