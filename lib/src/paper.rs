@@ -12,8 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::panic;
 use std::time::{SystemTime};
-use zip32::{DiversifierIndex, DiversifierKey};
-use zip32::{ChildIndex, ExtendedSpendingKey, ExtendedFullViewingKey};
+use zcash_primitives::zip32::{DiversifierIndex, DiversifierKey, ChildIndex, ExtendedSpendingKey, ExtendedFullViewingKey};
 
 /// A trait for converting a [u8] to base58 encoded string.
 pub trait ToBase58Check {
@@ -506,7 +505,7 @@ mod tests {
     #[test]
     fn test_z_encoding() {
         use crate::paper::{encode_address, encode_privatekey};
-        use zip32::ExtendedSpendingKey;
+        use zcash_primitives::zip32::ExtendedSpendingKey;
 
         let main_data = "[
             {'encoded' : '037d54cb810000008079a0d98ee64814bffe3f78e0b67363bdcdfd57b6a9a8f871615884ef79a001fdc59be1b24f5d75beed619d2eb3722a5f7f9d9c9e13f6c0218cd10bffe5ec0c0b21d65ad27ac913dfcd2d40425345d49c09e4fed60555a5f3346d76ed45906004f4c2cc6098f0780b9adaa0b1636976dcd8d6311812ef42f073d506ae19bbe4ff7501070410c512af68ed0141e146c69af666fe2efdeb804df33e3304ce07a0bb', 'address' : 'zs1ttwlzs7nnmdwmx7eag3k4szxzvsa82ttsakmux5zk0y9vcqp4jguecn5rqkjjdae2pgzcta4vkt', 'pk' : 'secret-extended-key-main1qd74fjupqqqqpqre5rvcaejgzjllu0mcuzm8xcaaeh740d4f4ru8zc2csnhhngqplhzehcdjfawht0hdvxwjavmj9f0hl8vuncfldspp3ngshll9asxqkgwkttf84jgnmlxj6szz2dzaf8qfunldvp245hengmtka4zeqcqy7npvccyc7puqhxk65zckx6tkmnvdvvgczth59urn65r2uxdmunlh2qg8qsgv2y40drkszs0pgmrf4anxlch0m6uqfhenuvcyecr6pwcvt7qwu'}, 
