@@ -377,44 +377,49 @@ fn gen_addresses_with_seed_as_json<F>(is_testnet: bool, zcount: u32, tcount: u32
     }      
 
     // Next generate the T addresses
-    #[cfg(feature = "secp256k1")]
-    {
-        // derive a RNG from the seed
-        let mut rng = ChaChaRng::from_seed(rng_seed);
+    // derive a RNG from the seed
+    let mut rng = ChaChaRng::from_seed(rng_seed);
 
-        for i in 0..tcount {        
-            let (addr, pk_wif) = get_taddress(is_testnet, &mut rng);
+    for i in 0..tcount {        
+        let (addr, pk_wif) = get_taddress(is_testnet, &mut rng);
 
-            ans.push(object!{
-                "num"               => i,
-                "address"           => addr,
-                "private_key"       => pk_wif,
-                "type"              => "taddr"
-            }).unwrap();
-        }
+        ans.push(object!{
+            "num"               => i,
+            "address"           => addr,
+            "private_key"       => pk_wif,
+            "type"              => "taddr"
+        }).unwrap();
     }
 
     return json::stringify_pretty(ans, 2);
 }
 
 /// Generate a t address
-#[cfg(feature = "secp256k1")]
-fn get_taddress(is_testnet: bool, mut rng: &mut ChaChaRng) -> (String, String) {
+fn get_taddress(is_testnet: bool, rng: &mut ChaChaRng) -> (String, String) {
     use secp256k1;
     use ripemd160::{Ripemd160, Digest};
 
-    // SECP256k1 context
-    let ctx = secp256k1::Secp256k1::default();
+    let mut sk_bytes: [u8; 32] = [0;32];
 
-    let (sk, pubkey) = ctx.generate_keypair(&mut rng);
+    // There's a small chance the generated private key bytes are invalid, so
+    // we loop till we find bytes that are
+    let sk = loop {    
+        rng.fill(&mut sk_bytes);
+
+        match secp256k1::SecretKey::parse(&sk_bytes) {
+            Ok(s)  => break s,
+            Err(_) => continue
+        }
+    };
+    
+    let pubkey = secp256k1::PublicKey::from_secret_key(&sk);
 
     // Address 
     let mut hash160 = Ripemd160::new();
-    hash160.input(sha2::Sha256::digest(&pubkey.serialize().to_vec()));
+    hash160.input(sha2::Sha256::digest(&pubkey.serialize_compressed().to_vec()));
     let addr = hash160.result().to_base58check(&params(is_testnet).taddress_version, &[]);
 
     // Private Key
-    let sk_bytes: &[u8] = &sk[..];
     let pk_wif = sk_bytes.to_base58check(&params(is_testnet).tsecret_prefix, &[0x01]);  
 
     return (addr, pk_wif);

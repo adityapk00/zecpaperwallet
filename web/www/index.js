@@ -9,7 +9,13 @@ function add_section(wallet_item) {
     let htmls = `
         <div class="row address-section">
             <div class="col-sm-9" style="word-break: break-word;">
-                <h1> Address (Sapling) </h1>
+                <h1> Address 
+                ${(() => {
+                    if (wallet_item["address"].startsWith("z")) { return "(Sapling)"; }
+                    else { return "(Transparent)"; }
+                   }) ()
+                }
+                </h1>
                 <p class="fixed-width"> ${wallet_item["address"]} </p>
             </div>
             <div class="col-sm-3">
@@ -36,7 +42,12 @@ function add_section(wallet_item) {
                 <br/>
                 <h2> Address </h2>
                 <p class="fixed-width"> ${wallet_item["address"]} </p>
-                <code> HD Key: ${wallet_item["seed"]["HDSeed"]}, path: ${wallet_item["seed"]["path"]} </code>
+                ${(() => {
+                        if (wallet_item.seed) {
+                            return `<code> HD Key: ${wallet_item["seed"]["HDSeed"]}, path: ${wallet_item["seed"]["path"]} </code>`;
+                        } else { return ""; }
+                   }) ()
+                }
             </div>
         </div>
         <div class='h-divider'></div>
@@ -45,7 +56,7 @@ function add_section(wallet_item) {
     jQuery("#wallet").append(pk_section);
     QRCode.toCanvas(document.getElementById("qrcode_pk_"+address_number), 
         wallet_item["private_key"], {
-            scale: 3.5
+            scale: wallet_item["private_key"].length < 60 ? 6.5 : 3.5
         });
 
     address_number++;
@@ -124,13 +135,14 @@ jQuery("#configdialog").on("hidden.bs.modal", function (e) {
     window.crypto.getRandomValues(buf);
     let system_entropy = toHexString(buf);
 
-    let numAddresses = jQuery("#numAddresses").val();
+    let numzAddresses = jQuery("#numzAddresses").val();
+    let numtAddresses = jQuery("#numtAddresses").val();
 
     jQuery("#pleasewait").modal('show');
 
     // Run this async so that the please wait dialog can show
     setTimeout(() => {
-        let w = JSON.parse(wasm.get_wallet(numAddresses, user_entropy + system_entropy));
+        let w = JSON.parse(wasm.get_wallet(numzAddresses, numtAddresses, user_entropy + system_entropy));
     
         w.forEach(wallet_item => {
             add_section(wallet_item); 

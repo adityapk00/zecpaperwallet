@@ -11,7 +11,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 
 #[wasm_bindgen]
-pub fn get_wallet(zaddrs: u32, entropy: String) -> String {    
-    let w = generate_wallet(false, false, zaddrs, 0, &double_sha256(entropy.as_bytes()));
+pub fn get_wallet(zaddrs: u32, taddrs: u32, entropy: String) -> String {    
+    let w = generate_wallet(false, false, zaddrs, taddrs, &double_sha256(entropy.as_bytes()));
     return w;
 }
