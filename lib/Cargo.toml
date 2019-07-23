@@ -11,8 +11,7 @@ default = ["printpdf"]
 rand = "0.5"
 hex = "0.3"
 bech32 = "0.6"
-zcash_primitives = {  git = "https://github.com/adityapk00/librustzcash", branch = "paperwallet" }
-#zcash_primitives = { path = "../../librustzcash/zcash_primitives" }
+zcash_primitives = {  git = "https://github.com/zcash/librustzcash", rev = "5a48d179b8434a0318e7e19dda506e245a904092" }
 json = "0.11.14"    
 qrcode = { version = "0.8", default-features = false }
 printpdf = { version = "0.2.8", optional = true }
