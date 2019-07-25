@@ -81,8 +81,9 @@ cd ../cli
 cargo clean
 echo "pub fn version() -> &'static str { &\"$APP_VERSION\" }" > src/version.rs
 
-# Compile for mac directly
+# Compile for mac directly and copy it over
 cargo build --release 
+cp target/release/zecpaperwallet ../ui/artifacts/macOS-zecpaperwallet-v$APP_VERSION/
 
 # For Windows and Linux, build via docker
 docker run --rm -v $(pwd)/..:/opt/zecpaperwallet rust/zecpaperwallet:v0.3 bash -c "cd /opt/zecpaperwallet/cli && cargo build --release  && cargo build --release --target x86_64-pc-windows-gnu && cargo build --release --target aarch64-unknown-linux-gnu && cargo build --release --target armv7-unknown-linux-gnueabihf"
@@ -92,7 +93,7 @@ cd ../ui
 
 # Now sign and zip the binaries
 #macOS
-cp ../cli/target/release/zecpaperwallet artifacts/macOS-zecpaperwallet-v$APP_VERSION/
+# binary is already copied above
 gpg --batch --output artifacts/macOS-zecpaperwallet-v$APP_VERSION/zecpaperwallet.sig --detach-sig artifacts/macOS-zecpaperwallet-v$APP_VERSION/zecpaperwallet 
 #gpg --batch --output artifacts/macOS-zecpaperwallet-v$APP_VERSION/zecpaperwallet.app.sig --detach-sig artifacts/macOS-zecpaperwallet-v$APP_VERSION/zecpaperwallet.app 
 cd artifacts
