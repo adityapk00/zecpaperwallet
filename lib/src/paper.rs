@@ -305,8 +305,7 @@ pub fn generate_wallet(is_testnet: bool, nohd: bool, zcount: u32, tcount: u32, u
     let mut system_entropy:[u8; 32] = [0; 32]; 
     {
         let result = panic::catch_unwind(|| {
-            //ChaChaRng::from_entropy()
-            ChaChaRng::from_seed([0; 32])
+            ChaChaRng::from_entropy()
         });
 
         let mut system_rng = match result {
@@ -316,7 +315,7 @@ pub fn generate_wallet(is_testnet: bool, nohd: bool, zcount: u32, tcount: u32, u
 
         system_rng.fill(&mut system_entropy);
     }    
-
+    
     // Add in user entropy to the system entropy, and produce a 32 byte hash... 
     let mut state = sha2::Sha256::new();
     state.input(&system_entropy);
@@ -541,6 +540,27 @@ mod tests {
             assert_eq!(encode_address(&spk, true), i["address"]);
             assert_eq!(encode_privatekey(&spk, true), i["pk"]);
         }
+    }
+
+     #[test]
+    fn test_entroy() {
+        use crate::paper::generate_wallet;
+        
+        // Testnet wallet 1
+        let w1 = generate_wallet(true, false, 1, 1, &[0; 32]);
+        let j1 = json::parse(&w1).unwrap();
+        assert_eq!(j1.len(), 2);
+
+        // Testnet wallet 2, same user_entropy
+        let w2 = generate_wallet(true, false, 1, 1, &[0; 32]);
+        let j2 = json::parse(&w2).unwrap();
+        assert_eq!(j2.len(), 2);
+
+        // Make sure that the two addresses are different
+        assert_ne!(j1[0]["address"].as_str().unwrap(), j2[0]["address"].as_str().unwrap());
+        assert_ne!(j1[1]["address"].as_str().unwrap(), j2[1]["address"].as_str().unwrap());
+        assert_ne!(j1[0]["private_key"].as_str().unwrap(), j2[0]["private_key"].as_str().unwrap());
+        assert_ne!(j1[1]["private_key"].as_str().unwrap(), j2[1]["private_key"].as_str().unwrap());
     }
 
     #[test]
