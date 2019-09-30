@@ -62,7 +62,7 @@ pub fn params(is_testnet: bool) -> CoinParams {
             tsecret_prefix   : [0xEF],
             zaddress_prefix  : "ztestsapling".to_string(),
             zsecret_prefix   : "secret-extended-key-test".to_string(),
-            zviewkey_prefix  : "zviews".to_string(),
+            zviewkey_prefix  : "zviewtestsapling".to_string(),
             cointype         : 1
         }
     } else {
@@ -71,7 +71,7 @@ pub fn params(is_testnet: bool) -> CoinParams {
             tsecret_prefix   : [0x80],
             zaddress_prefix  : "zs".to_string(),
             zsecret_prefix   : "secret-extended-key-main".to_string(),
-            zviewkey_prefix  : "zviewtestsapling".to_string(),
+            zviewkey_prefix  : "zviews".to_string(),
             cointype         : 133
         }
     }
