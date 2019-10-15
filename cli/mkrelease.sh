@@ -2,7 +2,7 @@
 # This script depends on a docker image already being built
 # To build it, 
 # cd docker
-# docker build --tag rust/zecpaperwallet:v0.1 .
+# docker build --tag rustbuild:latest .
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]
@@ -32,7 +32,7 @@ cargo clean
 cargo build --release 
 
 # For Windows and Linux, build via docker
-docker run --rm -v $(pwd)/..:/opt/zecpaperwallet rust/zecpaperwallet:v0.2 bash -c "cd /opt/zecpaperwallet/cli && cargo build --release && cargo build --release --target x86_64-pc-windows-gnu && cargo build --release --target aarch64-unknown-linux-gnu"
+docker run --rm -v $(pwd)/..:/opt/zecpaperwallet rustbuild:latest bash -c "cd /opt/zecpaperwallet/cli && cargo build --release && cargo build --release --target x86_64-pc-windows-gnu && cargo build --release --target aarch64-unknown-linux-gnu"
 
 # Now sign and zip the binaries
 #macOS
