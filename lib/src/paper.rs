@@ -62,7 +62,7 @@ pub fn params(is_testnet: bool) -> CoinParams {
             tsecret_prefix   : [0xEF],
             zaddress_prefix  : "ztestsapling".to_string(),
             zsecret_prefix   : "secret-extended-key-test".to_string(),
-            zviewkey_prefix  : "zviews".to_string(),
+            zviewkey_prefix  : "zviewtestsapling".to_string(),
             cointype         : 1
         }
     } else {
@@ -71,7 +71,7 @@ pub fn params(is_testnet: bool) -> CoinParams {
             tsecret_prefix   : [0x80],
             zaddress_prefix  : "zs".to_string(),
             zsecret_prefix   : "secret-extended-key-main".to_string(),
-            zviewkey_prefix  : "zviewtestsapling".to_string(),
+            zviewkey_prefix  : "zviews".to_string(),
             cointype         : 133
         }
     }
@@ -545,6 +545,7 @@ mod tests {
      #[test]
     fn test_entroy() {
         use crate::paper::generate_wallet;
+        use crate::paper::generate_vanity_wallet;
         
         // Testnet wallet 1
         let w1 = generate_wallet(true, false, 1, 1, &[0; 32]);
@@ -561,6 +562,14 @@ mod tests {
         assert_ne!(j1[1]["address"].as_str().unwrap(), j2[1]["address"].as_str().unwrap());
         assert_ne!(j1[0]["private_key"].as_str().unwrap(), j2[0]["private_key"].as_str().unwrap());
         assert_ne!(j1[1]["private_key"].as_str().unwrap(), j2[1]["private_key"].as_str().unwrap());
+
+        // Test the vanity address generator returns different addresses for every run
+        let td1 = json::parse(&generate_vanity_wallet(false, 1, "te".to_string()).unwrap()).unwrap();
+        let td2 = json::parse(&generate_vanity_wallet(false, 1, "te".to_string()).unwrap()).unwrap();
+        assert!(td1[0]["address"].as_str().unwrap().starts_with("zs1te"));
+        assert!(td2[0]["address"].as_str().unwrap().starts_with("zs1te"));
+
+        assert_ne!(td1[0]["address"].as_str().unwrap(), td2[0]["address"].as_str().unwrap());
     }
 
     #[test]
