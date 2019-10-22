@@ -31,14 +31,15 @@ cargo clean
 # Compile for mac directly
 cargo build --release 
 
+# macOS
+rm -rf target/macOS-zecpaperwallet-v$APP_VERSION
+mkdir -p target/macOS-zecpaperwallet-v$APP_VERSION
+cp target/release/zecpaperwallet target/macOS-zecpaperwallet-v$APP_VERSION/
+
 # For Windows and Linux, build via docker
 docker run --rm -v $(pwd)/..:/opt/zecpaperwallet rustbuild:latest bash -c "cd /opt/zecpaperwallet/cli && cargo build --release && cargo build --release --target x86_64-pc-windows-gnu && cargo build --release --target aarch64-unknown-linux-gnu"
 
 # Now sign and zip the binaries
-#macOS
-rm -rf target/macOS-zecpaperwallet-v$APP_VERSION
-mkdir -p target/macOS-zecpaperwallet-v$APP_VERSION
-cp target/release/zecpaperwallet target/macOS-zecpaperwallet-v$APP_VERSION/
 gpg --batch --output target/macOS-zecpaperwallet-v$APP_VERSION/zecpaperwallet.sig --detach-sig target/macOS-zecpaperwallet-v$APP_VERSION/zecpaperwallet 
 cd target
 cd macOS-zecpaperwallet-v$APP_VERSION

@@ -1,11 +1,10 @@
-FROM rust:1.34
+FROM rust:1.37
 LABEL Description="Rust compile env for Linux + Windows (cross)"
 
 RUN apt update
 RUN apt install -y build-essential mingw-w64 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
 
 RUN rustup target add x86_64-pc-windows-gnu
-RUN rustup target add x86_64-unknown-linux-musl
 RUN rustup target add aarch64-unknown-linux-gnu
 RUN rustup target add armv7-unknown-linux-gnueabihf
 
@@ -19,6 +18,5 @@ RUN echo "[target.aarch64-unknown-linux-gnu]" >> /usr/local/cargo/config && \
 RUN echo "[target.armv7-unknown-linux-gnueabihf]" >> /usr/local/cargo/config && \
     echo "linker = '/usr/bin/arm-linux-gnueabihf-gcc-5'" >> /usr/local/cargo/config
 
-ENV CC_x86_64_unknown_linux_musl="gcc" 
 ENV CC_aarch64_unknown_linux_gnu="aarch64-linux-gnu-gcc" 
 ENV CC_armv7_unknown_linux_gnueabhihf="arm-linux-gnueabihf-gcc-5"
