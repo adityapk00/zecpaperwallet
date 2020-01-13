@@ -62,6 +62,9 @@ FORMS += \
 INCLUDEPATH += $$PWD/qtlib/src
 DEPENDPATH  += $$PWD/qtlib/src
 
+mac: LIBS+= -Wl,-dead_strip
+mac: LIBS+= -Wl,-dead_strip_dylibs
+mac: LIBS+= -Wl,-bind_at_load
 
 win32: RC_ICONS = res/icon.ico
 ICON = res/logo.icns
