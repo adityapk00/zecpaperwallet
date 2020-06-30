@@ -264,7 +264,7 @@ pub fn generate_vanity_wallet(is_testnet: bool, num_threads: u32, prefix: String
     let mut processed: u64   = 0;
     let now = SystemTime::now();
 
-    let mut wallet: String;
+    let wallet: String;
 
     // Calculate the estimated time
     let expected_combinations = (32 as f64).powf(prefix.len() as f64);
@@ -303,6 +303,7 @@ pub fn generate_vanity_wallet(is_testnet: bool, num_threads: u32, prefix: String
 pub fn generate_wallet(is_testnet: bool, nohd: bool, zcount: u32, tcount: u32, user_entropy: &[u8]) -> String {        
     // Get 32 bytes of system entropy
     let mut system_entropy:[u8; 32] = [0; 32]; 
+    #[cfg(feature = "systemrand")]
     {
         let result = panic::catch_unwind(|| {
             ChaChaRng::from_entropy()
@@ -395,9 +396,6 @@ fn gen_addresses_with_seed_as_json<F>(is_testnet: bool, zcount: u32, tcount: u32
 
 /// Generate a t address
 fn get_taddress(is_testnet: bool, rng: &mut ChaChaRng) -> (String, String) {
-    use secp256k1;
-    use ripemd160::{Ripemd160, Digest};
-
     let mut sk_bytes: [u8; 32] = [0;32];
 
     // There's a small chance the generated private key bytes are invalid, so
@@ -414,7 +412,7 @@ fn get_taddress(is_testnet: bool, rng: &mut ChaChaRng) -> (String, String) {
     let pubkey = secp256k1::PublicKey::from_secret_key(&sk);
 
     // Address 
-    let mut hash160 = Ripemd160::new();
+    let mut hash160 = ripemd160::Ripemd160::new();
     hash160.input(sha2::Sha256::digest(&pubkey.serialize_compressed().to_vec()));
     let addr = hash160.result().to_base58check(&params(is_testnet).taddress_version, &[]);
 
