@@ -5,7 +5,8 @@ authors = ["ZecWallet"]
 edition = "2018"
 
 [features]
-default = ["printpdf"]
+default = ["printpdf", "systemrand"]
+systemrand = []
 
 [dependencies]
 rand = "0.5"
