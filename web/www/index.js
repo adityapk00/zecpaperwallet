@@ -39,25 +39,52 @@ function add_section(wallet_item) {
             <div class="col-sm-9" style="word-break: break-word;">
                 <h1> Private Key </h1>
                 <p class="fixed-width"> ${wallet_item["private_key"]} </p>
-                <br/>
-                <h2> Address </h2>
-                <p class="fixed-width"> ${wallet_item["address"]} </p>
-                ${(() => {
-                        if (wallet_item.seed) {
-                            return `<code> HD Key: ${wallet_item["seed"]["HDSeed"]}, path: ${wallet_item["seed"]["path"]} </code>`;
-                        } else { return ""; }
-                   }) ()
-                }
             </div>
-        </div>
-        <div class='h-divider'></div>
-    `;
+        </div>`;
+
+    let vk_section = '';
+    if (wallet_item["address"].startsWith("z")) {
+        vk_section = `
+            <div class="row pk-section">
+                <div class="h-dashed"></div>
+                <div class="col-sm-3">
+                    <canvas id="qrcode_vk_${address_number}"></canvas>
+                </div>
+                <div class="col-sm-9" style="word-break: break-word;">
+                    <h1> Viewing Key </h1>
+                    <p class="fixed-width"> ${wallet_item["viewing_key"]} </p>
+                    <h2> Address </h2>
+                    <p class="fixed-width"> ${wallet_item["address"]} </p>
+                    ${(() => {
+                            if (wallet_item.seed) {
+                                return `<code> HD Key: ${wallet_item["seed"]["HDSeed"]}, path: ${wallet_item["seed"]["path"]} </code>`;
+                            } else { return ""; }
+                    }) ()
+                    }
+                </div>
+            </div>`;
+    }
+
+    let seperator = `<div class='h-divider'></div>`;
+    
     
     jQuery("#wallet").append(pk_section);
     QRCode.toCanvas(document.getElementById("qrcode_pk_"+address_number), 
         wallet_item["private_key"], {
             scale: wallet_item["private_key"].length < 60 ? 6.5 : 3.5
         });
+    
+
+    if (vk_section) {
+        jQuery("#wallet").append(vk_section);
+        
+        QRCode.toCanvas(document.getElementById("qrcode_vk_"+address_number), 
+        wallet_item["viewing_key"], {
+            scale: wallet_item["viewing_key"].length < 60 ? 6.5 : 3.5
+        });
+    }
+
+    jQuery("#wallet").append(seperator);
 
     address_number++;
 
