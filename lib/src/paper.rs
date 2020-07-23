@@ -62,7 +62,7 @@ pub fn params(is_testnet: bool) -> CoinParams {
             tsecret_prefix   : [0xEF],
             zaddress_prefix  : "ztestsapling".to_string(),
             zsecret_prefix   : "secret-extended-key-test".to_string(),
-            zviewkey_prefix  : "zviewtestsapling".to_string(),
+            zviewkey_prefix  : "zxviewtestsapling".to_string(),
             cointype         : 1
         }
     } else {
@@ -71,7 +71,7 @@ pub fn params(is_testnet: bool) -> CoinParams {
             tsecret_prefix   : [0x80],
             zaddress_prefix  : "zs".to_string(),
             zsecret_prefix   : "secret-extended-key-main".to_string(),
-            zviewkey_prefix  : "zviews".to_string(),
+            zviewkey_prefix  : "zxviews".to_string(),
             cointype         : 133
         }
     }
@@ -366,11 +366,12 @@ fn gen_addresses_with_seed_as_json<F>(is_testnet: bool, zcount: u32, tcount: u32
     // First generate the Z addresses
     for i in 0..zcount {
         let (seed, child) = get_seed(i);
-        let (addr, pk, _vk, path) = get_zaddress(is_testnet, &seed, child);
+        let (addr, pk, vk, path) = get_zaddress(is_testnet, &seed, child);
         ans.push(object!{
                 "num"           => i,
                 "address"       => addr,
                 "private_key"   => pk,
+                "viewing_key"   => vk,
                 "type"          => "zaddr",
                 "seed"          => path
         }).unwrap(); 
