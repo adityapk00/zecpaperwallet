@@ -138,7 +138,7 @@ fn encode_privatekey(spk: &ExtendedSpendingKey, is_testnet: bool) -> String {
     return encoded_pk;
 }
 
-/// A single thread that grinds through the Diversifiers to find the defualt key that matches the prefix
+/// A single thread that grinds through the Diversifiers to find the default key that matches the prefix
 pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc::Sender<String>, please_stop: Arc<AtomicBool>) {
     
     let mut seed: [u8; 32] = [0; 32];
@@ -350,7 +350,7 @@ pub fn generate_wallet(is_testnet: bool, nohd: bool, zcount: u32, tcount: u32, u
 /// 
 /// Note that cointype is 1 for testnet and 133 for mainnet
 /// 
-/// get_seed is a closure that will take the address number being derived, and return a tuple cointaining the 
+/// get_seed is a closure that will take the address number being derived, and return a tuple containing the 
 /// seed and child number to use to derive this wallet. 
 /// It is useful if we want to reuse (or not) the seed across multiple wallets.
 fn gen_addresses_with_seed_as_json<F>(is_testnet: bool, zcount: u32, tcount: u32, mut get_seed: F) -> String 
@@ -740,7 +740,7 @@ mod tests {
     
 
     
-    ///    Test data was derived from zcashd. It cointains 20 sets of seeds, and for each seed, it contains 5 accounts that are derived for the testnet and mainnet. 
+    ///    Test data was derived from zcashd. It contains 20 sets of seeds, and for each seed, it contains 5 accounts that are derived for the testnet and mainnet. 
     ///    We'll use the same seed and derive the same set of addresses here, and then make sure that both the address and private key matches up.
     ///    To derive the test data, add something like this in test_wallet.cpp and run with
     ///    ./src/zcash-gtest --gtest_filter=WalletTests.*
