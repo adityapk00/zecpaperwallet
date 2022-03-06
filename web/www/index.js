@@ -65,7 +65,7 @@ function add_section(wallet_item) {
             </div>`;
     }
 
-    let seperator = `<div class='h-divider'></div>`;
+    let separator = `<div class='h-divider'></div>`;
     
     
     jQuery("#wallet").append(pk_section);
@@ -84,7 +84,7 @@ function add_section(wallet_item) {
         });
     }
 
-    jQuery("#wallet").append(seperator);
+    jQuery("#wallet").append(separator);
 
     address_number++;
 

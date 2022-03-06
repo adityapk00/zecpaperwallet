@@ -100,7 +100,7 @@ pub fn save_to_pdf(is_testnet: bool, addresses: &str, filename: &str) -> Result<
 }
 
 /**
- * Generate a qrcode. The outout is a vector of RGB values of size (qrcode_modules * scalefactor) + padding
+ * Generate a qrcode. The output is a vector of RGB values of size (qrcode_modules * scalefactor) + padding
  */
 fn qrcode_scaled(data: &str, scalefactor: usize) -> (Vec<u8>, usize) {
     let code = QrCode::new(data.as_bytes()).unwrap();
