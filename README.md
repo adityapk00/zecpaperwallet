@@ -70,7 +70,7 @@ OPTIONS:
     -e, --entropy <entropy>       Provide additional entropy to the random number generator. Any random string,
                                   containing 32-64 characters
     -f, --format <FORMAT>         What format to generate the output in [default: json]  [possible values: pdf, json]
-    -t, --taddrs <t_addresses>    Numbe rof T addresses to generate [default: 0]
+    -t, --taddrs <t_addresses>    Number of T addresses to generate [default: 0]
         --threads <threads>       Number of threads to use for the vanity address generator. Set this to the number of
                                   CPUs you have [default: 1]
         --vanity <vanity>         Generate a vanity address with the given prefix
