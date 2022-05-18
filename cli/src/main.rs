@@ -50,7 +50,7 @@ fn main() {
         .arg(Arg::with_name("t_addresses")
                 .short("t")
                 .long("taddrs")
-                .help("Numbe rof T addresses to generate")
+                .help("Number of T addresses to generate")
                 .takes_value(true)
                 .default_value("0")
                 .validator(|i:String| match i.parse::<i32>() {
