@@ -1,24 +1,25 @@
-use std::thread;
+use base58::ToBase58;
+use bech32::{u5, Bech32, ToBase32};
 use hex;
-use base58::{ToBase58};
-use bech32::{Bech32, u5, ToBase32};
-use rand::{Rng, ChaChaRng, FromEntropy, SeedableRng};
 use json::{array, object};
-use sha2::{Sha256, Digest};
+use rand::{ChaChaRng, FromEntropy, Rng, SeedableRng};
+use sapling_crypto::zip32::DiversifierKey;
+use sha2::{Digest, Sha256};
 use std::io;
 use std::io::Write;
-use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
 use std::sync::Arc;
-use std::panic;
-use std::time::{SystemTime};
-use zcash_primitives::zip32::{DiversifierIndex, DiversifierKey, ChildIndex, ExtendedSpendingKey, ExtendedFullViewingKey};
+use std::thread;
+use std::time::SystemTime;
+use zcash_keys::keys::sapling::ExtendedSpendingKey;
+use zcash_primitives::zip32::{ChildIndex, DiversifierIndex};
 
 /// A trait for converting a [u8] to base58 encoded string.
 pub trait ToBase58Check {
     /// Converts a value of `self` to a base58 value, returning the owned string.
-    /// The version is a coin-specific prefix that is added. 
-    /// The suffix is any bytes that we want to add at the end (like the "iscompressed" flag for 
+    /// The version is a coin-specific prefix that is added.
+    /// The suffix is any bytes that we want to add at the end (like the "iscompressed" flag for
     /// Secret key encoding)
     fn to_base58check(&self, version: &[u8], suffix: &[u8]) -> String;
 }
@@ -29,8 +30,8 @@ impl ToBase58Check for [u8] {
         payload.extend_from_slice(version);
         payload.extend_from_slice(self);
         payload.extend_from_slice(suffix);
-        
-        let mut checksum = double_sha256(&payload);
+
+        let checksum = double_sha256(&payload);
         payload.append(&mut checksum[..4].to_vec());
         payload.to_base58()
     }
@@ -39,40 +40,40 @@ impl ToBase58Check for [u8] {
 /// Sha256(Sha256(value))
 pub fn double_sha256(payload: &[u8]) -> Vec<u8> {
     let h1 = Sha256::digest(&payload);
-    let h2 = Sha256::digest(&h1);
+    let h2 = Sha256::digest(&h1.as_slice());
     h2.to_vec()
 }
 
 /// Parameters used to generate addresses and private keys. Look in chainparams.cpp (in zcashd/src)
-/// to get these values. 
+/// to get these values.
 /// Usually these will be different for testnet and for mainnet.
 pub struct CoinParams {
     pub taddress_version: [u8; 2],
-    pub tsecret_prefix  : [u8; 1],
-    pub zaddress_prefix : String,
-    pub zsecret_prefix  : String,
-    pub zviewkey_prefix : String,
-    pub cointype        : u32,
+    pub tsecret_prefix: [u8; 1],
+    pub zaddress_prefix: String,
+    pub zsecret_prefix: String,
+    pub zviewkey_prefix: String,
+    pub cointype: u32,
 }
 
 pub fn params(is_testnet: bool) -> CoinParams {
     if is_testnet {
         CoinParams {
-            taddress_version : [0x1D, 0x25],
-            tsecret_prefix   : [0xEF],
-            zaddress_prefix  : "ztestsapling".to_string(),
-            zsecret_prefix   : "secret-extended-key-test".to_string(),
-            zviewkey_prefix  : "zxviewtestsapling".to_string(),
-            cointype         : 1
+            taddress_version: [0x1D, 0x25],
+            tsecret_prefix: [0xEF],
+            zaddress_prefix: "ztestsapling".to_string(),
+            zsecret_prefix: "secret-extended-key-test".to_string(),
+            zviewkey_prefix: "zxviewtestsapling".to_string(),
+            cointype: 1,
         }
     } else {
         CoinParams {
-            taddress_version : [0x1C, 0xB8],
-            tsecret_prefix   : [0x80],
-            zaddress_prefix  : "zs".to_string(),
-            zsecret_prefix   : "secret-extended-key-main".to_string(),
-            zviewkey_prefix  : "zxviews".to_string(),
-            cointype         : 133
+            taddress_version: [0x1C, 0xB8],
+            tsecret_prefix: [0x80],
+            zaddress_prefix: "zs".to_string(),
+            zsecret_prefix: "secret-extended-key-main".to_string(),
+            zviewkey_prefix: "zxviews".to_string(),
+            cointype: 133,
         }
     }
 }
@@ -93,14 +94,12 @@ pub fn increment(s: &mut [u8; 32]) -> Result<(), ()> {
 fn get_bech32_for_prefix(prefix: String) -> Result<Vec<u5>, String> {
     // Reverse character set. Maps ASCII byte -> CHARSET index on [0,31]
     const CHARSET_REV: [i8; 128] = [
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-        15, -1, 10, 17, 21, 20, 26, 30,  7,  5, -1, -1, -1, -1, -1, -1,
-        -1, 29, -1, 24, 13, 25,  9,  8, 23, -1, 18, 22, 31, 27, 19, -1,
-        1,  0,  3, 16, 11, 28, 12, 14,  6,  4,  2, -1, -1, -1, -1, -1,
-        -1, 29, -1, 24, 13, 25,  9,  8, 23, -1, 18, 22, 31, 27, 19, -1,
-        1,  0,  3, 16, 11, 28, 12, 14,  6,  4,  2, -1, -1, -1, -1, -1
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, 15, -1, 10, 17, 21, 20, 26, 30, 7, 5, -1, -1, -1, -1, -1, -1, -1, 29, -1, 24, 13,
+        25, 9, 8, 23, -1, 18, 22, 31, 27, 19, -1, 1, 0, 3, 16, 11, 28, 12, 14, 6, 4, 2, -1, -1, -1,
+        -1, -1, -1, 29, -1, 24, 13, 25, 9, 8, 23, -1, 18, 22, 31, 27, 19, -1, 1, 0, 3, 16, 11, 28,
+        12, 14, 6, 4, 2, -1, -1, -1, -1, -1,
     ];
 
     let mut ans = Vec::new();
@@ -108,23 +107,23 @@ fn get_bech32_for_prefix(prefix: String) -> Result<Vec<u5>, String> {
         if CHARSET_REV[c as usize] == -1 {
             return Err(format!("Invalid character in prefix: '{}'", c));
         }
-        ans.push(u5::try_from_u8(CHARSET_REV[c as usize] as u8).expect("Should be able to convert to u5"));
+        ans.push(
+            u5::try_from_u8(CHARSET_REV[c as usize] as u8)
+                .expect("Should be able to convert to u5"),
+        );
     }
 
     return Ok(ans);
 }
 
 fn encode_address(spk: &ExtendedSpendingKey, is_testnet: bool) -> String {
-    let (_d, addr) = spk.default_address().expect("Cannot get result");
-
-    // Address is encoded as a bech32 string
-    let mut v = vec![0; 43];
-
-    v.get_mut(..11).unwrap().copy_from_slice(&addr.diversifier.0);
-    addr.pk_d.write(v.get_mut(11..).unwrap()).expect("Cannot write!");
-    let checked_data: Vec<u5> = v.to_base32();
-    let encoded : String = Bech32::new(params(is_testnet).zaddress_prefix.into(), checked_data).expect("bech32 failed").to_string();
-    
+    let (_d, addr) = spk.default_address();
+    let encoded = Bech32::new(
+        params(is_testnet).zaddress_prefix.into(),
+        addr.to_bytes().to_base32(),
+    )
+    .expect("bech32 failed")
+    .to_string();
     return encoded;
 }
 
@@ -133,22 +132,35 @@ fn encode_privatekey(spk: &ExtendedSpendingKey, is_testnet: bool) -> String {
     let mut vp = Vec::new();
     spk.write(&mut vp).expect("Can't write private key");
     let c_d: Vec<u5> = vp.to_base32();
-    let encoded_pk = Bech32::new(params(is_testnet).zsecret_prefix.into(), c_d).expect("bech32 failed").to_string();
+    let encoded_pk = Bech32::new(params(is_testnet).zsecret_prefix.into(), c_d)
+        .expect("bech32 failed")
+        .to_string();
 
     return encoded_pk;
 }
 
 /// A single thread that grinds through the Diversifiers to find the default key that matches the prefix
-pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc::Sender<String>, please_stop: Arc<AtomicBool>) {
-    
+pub fn vanity_thread(
+    is_testnet: bool,
+    entropy: &[u8],
+    prefix: String,
+    tx: mpsc::Sender<String>,
+    please_stop: Arc<AtomicBool>,
+) {
     let mut seed: [u8; 32] = [0; 32];
     seed.copy_from_slice(&entropy[0..32]);
 
     let di = DiversifierIndex::new();
     let vanity_bytes = get_bech32_for_prefix(prefix).expect("Bad char in prefix");
 
-    let master_spk = ExtendedSpendingKey::from_path(&ExtendedSpendingKey::master(&seed),
-                            &[ChildIndex::Hardened(32), ChildIndex::Hardened(params(is_testnet).cointype), ChildIndex::Hardened(0)]);
+    let master_spk = ExtendedSpendingKey::from_path(
+        &ExtendedSpendingKey::master(&seed),
+        &[
+            ChildIndex::hardened(32),
+            ChildIndex::hardened(params(is_testnet).cointype),
+            ChildIndex::hardened(0),
+        ],
+    );
 
     let mut spkv = vec![];
     master_spk.write(&mut spkv).unwrap();
@@ -160,50 +172,53 @@ pub fn vanity_thread(is_testnet: bool, entropy: &[u8], prefix: String, tx: mpsc:
         }
 
         let dk = DiversifierKey::master(&seed);
-        let (_ndk, nd) = dk.diversifier(di).unwrap();
+
+        let diversifier = dk.diversifier(di).unwrap();
+        let nd = diversifier.0;
 
         // test for nd
         let mut isequal = true;
         for i in 0..vanity_bytes.len() {
-            if vanity_bytes[i] != nd.0.to_base32()[i] {
+            if vanity_bytes[i] != nd.to_base32()[i] {
                 isequal = false;
                 break;
             }
         }
 
-        if isequal { 
+        if isequal {
             let len = spkv.len();
-            spkv[(len-32)..len].copy_from_slice(&dk.0[0..32]);
+            spkv[(len - 32)..len].copy_from_slice(&dk.as_bytes()[0..32]);
             let spk = ExtendedSpendingKey::read(&spkv[..]).unwrap();
 
-            
             let encoded = encode_address(&spk, is_testnet);
             let encoded_pk = encode_privatekey(&spk, is_testnet);
-            
-            let wallet = array!{object!{
-                "num"           => 0,
-                "address"       => encoded,
-                "private_key"   => encoded_pk,
-                "type"          => "zaddr"}};
-            
+
+            let wallet = array! {object!{
+            "num"           => 0,
+            "address"       => encoded,
+            "private_key"   => encoded_pk,
+            "type"          => "zaddr"}};
+
             tx.send(json::stringify_pretty(wallet, 2)).unwrap();
             return;
         }
 
         i = i + 1;
-        if i%5000 == 0 {
+        if i % 5000 == 0 {
             if please_stop.load(Ordering::Relaxed) {
                 return;
             }
             tx.send("Processed:5000".to_string()).unwrap();
         }
 
-        if i == 0 { return; }
+        if i == 0 {
+            return;
+        }
     }
 }
 
 fn pretty_duration(secs: f64) -> (String, String) {
-    let mut expected_dur  = "sec";
+    let mut expected_dur = "sec";
     let mut expected_time = secs;
 
     if expected_time > 60.0 {
@@ -231,16 +246,25 @@ fn pretty_duration(secs: f64) -> (String, String) {
 }
 
 /// Generate a vanity address with the given prefix.
-pub fn generate_vanity_wallet(is_testnet: bool, num_threads: u32, prefix: String) -> Result<String, String> {
+pub fn generate_vanity_wallet(
+    is_testnet: bool,
+    num_threads: u32,
+    prefix: String,
+) -> Result<String, String> {
     // Test the prefix first
     match get_bech32_for_prefix(prefix.clone()) {
-        Ok(_)  => (),
-        Err(e) => return Err(format!("{}. Note that ['b', 'i', 'o', '1'] are not allowed in addresses.", e))
+        Ok(_) => (),
+        Err(e) => {
+            return Err(format!(
+                "{}. Note that ['b', 'i', 'o', '1'] are not allowed in addresses.",
+                e
+            ))
+        }
     };
 
     // Get 32 bytes of system entropy
-    let mut system_rng = ChaChaRng::from_entropy();    
-    
+    let mut system_rng = ChaChaRng::from_entropy();
+
     let (tx, rx) = mpsc::channel();
     let please_stop = Arc::new(AtomicBool::new(false));
 
@@ -251,17 +275,17 @@ pub fn generate_vanity_wallet(is_testnet: bool, num_threads: u32, prefix: String
         let prefix_local = prefix.clone();
         let tx_local = mpsc::Sender::clone(&tx);
         let ps_local = please_stop.clone();
-    
+
         let mut entropy: [u8; 32] = [0; 32];
         system_rng.fill(&mut entropy);
-    
+
         let handle = thread::spawn(move || {
             vanity_thread(testnet_local, &entropy, prefix_local, tx_local, ps_local);
         });
         handles.push(handle);
     }
-    
-    let mut processed: u64   = 0;
+
+    let mut processed: u64 = 0;
     let now = SystemTime::now();
 
     let wallet: String;
@@ -275,53 +299,60 @@ pub fn generate_vanity_wallet(is_testnet: bool, num_threads: u32, prefix: String
             processed = processed + 5000;
             let timeelapsed = now.elapsed().unwrap().as_secs() + 1; // Add one second to prevent any divide by zero problems.
 
-            let rate = processed / timeelapsed;            
+            let rate = processed / timeelapsed;
             let expected_secs = expected_combinations / (rate as f64);
 
             let (s, d) = pretty_duration(expected_secs);
 
-            print!("Checking addresses at {}/sec on {} CPU threads. [50% ETA = {} {}]   \r", rate, num_threads, s, d);
+            print!(
+                "Checking addresses at {}/sec on {} CPU threads. [50% ETA = {} {}]   \r",
+                rate, num_threads, s, d
+            );
             io::stdout().flush().ok().unwrap();
         } else {
             // Found a solution
-            println!("");   // To clear the previous inline output to stdout;
+            println!(""); // To clear the previous inline output to stdout;
             wallet = recv;
 
             please_stop.store(true, Ordering::Relaxed);
             break;
-        } 
+        }
     }
 
     for handle in handles {
         handle.join().unwrap();
-    }    
+    }
 
     return Ok(wallet);
 }
 
-/// Generate a series of `count` addresses and private keys. 
-pub fn generate_wallet(is_testnet: bool, nohd: bool, zcount: u32, tcount: u32, user_entropy: &[u8]) -> String {        
+/// Generate a series of `count` addresses and private keys.
+pub fn generate_wallet(
+    is_testnet: bool,
+    nohd: bool,
+    zcount: u32,
+    tcount: u32,
+    user_entropy: &[u8],
+) -> String {
     // Get 32 bytes of system entropy
-    let mut system_entropy:[u8; 32] = [0; 32]; 
+    let mut system_entropy: [u8; 32] = [0; 32];
     #[cfg(feature = "systemrand")]
     {
-        let result = panic::catch_unwind(|| {
-            ChaChaRng::from_entropy()
-        });
+        let result = std::panic::catch_unwind(|| ChaChaRng::from_entropy());
 
         let mut system_rng = match result {
-            Ok(rng)     => rng,
-            Err(_e)     => ChaChaRng::from_seed([0; 32])
+            Ok(rng) => rng,
+            Err(_e) => ChaChaRng::from_seed([0; 32]),
         };
 
         system_rng.fill(&mut system_entropy);
-    }    
-    
-    // Add in user entropy to the system entropy, and produce a 32 byte hash... 
+    }
+
+    // Add in user entropy to the system entropy, and produce a 32 byte hash...
     let mut state = sha2::Sha256::new();
     state.input(&system_entropy);
     state.input(&user_entropy);
-    
+
     let mut final_entropy: [u8; 32] = [0; 32];
     final_entropy.clone_from_slice(&double_sha256(&state.result()[..]));
 
@@ -329,32 +360,38 @@ pub fn generate_wallet(is_testnet: bool, nohd: bool, zcount: u32, tcount: u32, u
     let mut rng = ChaChaRng::from_seed(final_entropy);
 
     if !nohd {
-        // Allow HD addresses, so use only 1 seed        
+        // Allow HD addresses, so use only 1 seed
         let mut seed: [u8; 32] = [0; 32];
         rng.fill(&mut seed);
-        
+
         return gen_addresses_with_seed_as_json(is_testnet, zcount, tcount, |i| (seed.to_vec(), i));
     } else {
-        // Not using HD addresses, so derive a new seed every time    
-        return gen_addresses_with_seed_as_json(is_testnet, zcount, tcount, |_| {            
-            let mut seed:[u8; 32] = [0; 32]; 
+        // Not using HD addresses, so derive a new seed every time
+        return gen_addresses_with_seed_as_json(is_testnet, zcount, tcount, |_| {
+            let mut seed: [u8; 32] = [0; 32];
             rng.fill(&mut seed);
-            
+
             return (seed.to_vec(), 0);
         });
-    }    
+    }
 }
 
-/// Generate `count` addresses with the given seed. The addresses are derived from m/32'/cointype'/index' where 
+/// Generate `count` addresses with the given seed. The addresses are derived from m/32'/cointype'/index' where
 /// index is 0..count
-/// 
+///
 /// Note that cointype is 1 for testnet and 133 for mainnet
-/// 
-/// get_seed is a closure that will take the address number being derived, and return a tuple containing the 
-/// seed and child number to use to derive this wallet. 
+///
+/// get_seed is a closure that will take the address number being derived, and return a tuple containing the
+/// seed and child number to use to derive this wallet.
 /// It is useful if we want to reuse (or not) the seed across multiple wallets.
-fn gen_addresses_with_seed_as_json<F>(is_testnet: bool, zcount: u32, tcount: u32, mut get_seed: F) -> String 
-    where F: FnMut(u32) -> (Vec<u8>, u32)
+fn gen_addresses_with_seed_as_json<F>(
+    is_testnet: bool,
+    zcount: u32,
+    tcount: u32,
+    mut get_seed: F,
+) -> String
+where
+    F: FnMut(u32) -> (Vec<u8>, u32),
 {
     let mut ans = array![];
 
@@ -362,34 +399,36 @@ fn gen_addresses_with_seed_as_json<F>(is_testnet: bool, zcount: u32, tcount: u32
     let (seed, _) = get_seed(0);
     let mut rng_seed: [u8; 32] = [0; 32];
     rng_seed.clone_from_slice(&seed[0..32]);
-    
+
     // First generate the Z addresses
     for i in 0..zcount {
         let (seed, child) = get_seed(i);
         let (addr, pk, vk, path) = get_zaddress(is_testnet, &seed, child);
-        ans.push(object!{
+        ans.push(object! {
                 "num"           => i,
                 "address"       => addr,
                 "private_key"   => pk,
                 "viewing_key"   => vk,
                 "type"          => "zaddr",
                 "seed"          => path
-        }).unwrap(); 
-    }      
+        })
+        .unwrap();
+    }
 
     // Next generate the T addresses
     // derive a RNG from the seed
     let mut rng = ChaChaRng::from_seed(rng_seed);
 
-    for i in 0..tcount {        
+    for i in 0..tcount {
         let (addr, pk_wif) = get_taddress(is_testnet, &mut rng);
 
-        ans.push(object!{
+        ans.push(object! {
             "num"               => i,
             "address"           => addr,
             "private_key"       => pk_wif,
             "type"              => "taddr"
-        }).unwrap();
+        })
+        .unwrap();
     }
 
     return json::stringify_pretty(ans, 2);
@@ -397,43 +436,51 @@ fn gen_addresses_with_seed_as_json<F>(is_testnet: bool, zcount: u32, tcount: u32
 
 /// Generate a t address
 fn get_taddress(is_testnet: bool, rng: &mut ChaChaRng) -> (String, String) {
-    let mut sk_bytes: [u8; 32] = [0;32];
+    let mut sk_bytes: [u8; 32] = [0; 32];
 
     // There's a small chance the generated private key bytes are invalid, so
     // we loop till we find bytes that are
-    let sk = loop {    
+    let sk = loop {
         rng.fill(&mut sk_bytes);
 
-        match secp256k1::SecretKey::parse(&sk_bytes) {
-            Ok(s)  => break s,
-            Err(_) => continue
+        match libsecp256k1::SecretKey::parse(&sk_bytes) {
+            Ok(s) => break s,
+            Err(_) => continue,
         }
     };
-    
-    let pubkey = secp256k1::PublicKey::from_secret_key(&sk);
 
-    // Address 
+    let pubkey = libsecp256k1::PublicKey::from_secret_key(&sk);
+
+    // Address
     let mut hash160 = ripemd160::Ripemd160::new();
-    hash160.input(sha2::Sha256::digest(&pubkey.serialize_compressed().to_vec()));
-    let addr = hash160.result().to_base58check(&params(is_testnet).taddress_version, &[]);
+    hash160.input(sha2::Sha256::digest(
+        &pubkey.serialize_compressed().to_vec(),
+    ));
+    let addr = hash160
+        .result()
+        .to_base58check(&params(is_testnet).taddress_version, &[]);
 
     // Private Key
-    let pk_wif = sk_bytes.to_base58check(&params(is_testnet).tsecret_prefix, &[0x01]);  
+    let pk_wif = sk_bytes.to_base58check(&params(is_testnet).tsecret_prefix, &[0x01]);
 
     return (addr, pk_wif);
 }
 
 /// Generate a standard ZIP-32 address from the given seed at 32'/44'/0'/index
-fn get_zaddress(is_testnet: bool, seed: &[u8], index: u32) -> (String, String, String, json::JsonValue) {
-   let spk: ExtendedSpendingKey = ExtendedSpendingKey::from_path(
-            &ExtendedSpendingKey::master(seed),
-            &[
-                ChildIndex::Hardened(32),
-                ChildIndex::Hardened(params(is_testnet).cointype),
-                ChildIndex::Hardened(index)
-            ],
-        );
-    let path = object!{
+fn get_zaddress(
+    is_testnet: bool,
+    seed: &[u8],
+    index: u32,
+) -> (String, String, String, json::JsonValue) {
+    let spk: ExtendedSpendingKey = ExtendedSpendingKey::from_path(
+        &ExtendedSpendingKey::master(seed),
+        &[
+            ChildIndex::hardened(32),
+            ChildIndex::hardened(params(is_testnet).cointype),
+            ChildIndex::hardened(index),
+        ],
+    );
+    let path = object! {
         "HDSeed"    => hex::encode(seed),
         "path"      => format!("m/32'/{}'/{}'", params(is_testnet).cointype, index)
     };
@@ -443,43 +490,49 @@ fn get_zaddress(is_testnet: bool, seed: &[u8], index: u32) -> (String, String, S
 
     // Viewing Key is encoded as bech32 string
     let mut vv = Vec::new();
-    ExtendedFullViewingKey::from(&spk).write(&mut vv).expect("Can't write viewing key");
+    let efvk = spk.to_diversifiable_full_viewing_key();
+    efvk.fvk().write(&mut vv).expect("Can't write viewing key");
     let c_v: Vec<u5> = vv.to_base32();
-    let encoded_vk = Bech32::new(params(is_testnet).zviewkey_prefix.into(), c_v).expect("bech32 failed").to_string();
+    let encoded_vk = Bech32::new(params(is_testnet).zviewkey_prefix.into(), c_v)
+        .expect("bech32 failed")
+        .to_string();
 
     return (encoded, encoded_pk, encoded_vk, path);
 }
 
-
-
-
-
-
 // Tests
 #[cfg(test)]
 mod tests {
-    
+
     /// Test the wallet generation and that it is generating the right number and type of addresses
     #[test]
     fn test_wallet_generation() {
         use crate::paper::generate_wallet;
         use std::collections::HashSet;
-        
+
         // Testnet wallet
         let w = generate_wallet(true, false, 1, 0, &[]);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 1);
-        assert!(j[0]["address"].as_str().unwrap().starts_with("ztestsapling"));
-        assert!(j[0]["private_key"].as_str().unwrap().starts_with("secret-extended-key-test"));
+        assert!(j[0]["address"]
+            .as_str()
+            .unwrap()
+            .starts_with("ztestsapling"));
+        assert!(j[0]["private_key"]
+            .as_str()
+            .unwrap()
+            .starts_with("secret-extended-key-test"));
         assert_eq!(j[0]["seed"]["path"].as_str().unwrap(), "m/32'/1'/0'");
-
 
         // Mainnet wallet
         let w = generate_wallet(false, false, 1, 0, &[]);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 1);
         assert!(j[0]["address"].as_str().unwrap().starts_with("zs"));
-        assert!(j[0]["private_key"].as_str().unwrap().starts_with("secret-extended-key-main"));
+        assert!(j[0]["private_key"]
+            .as_str()
+            .unwrap()
+            .starts_with("secret-extended-key-main"));
         assert_eq!(j[0]["seed"]["path"].as_str().unwrap(), "m/32'/133'/0'");
 
         // Check if all the addresses are the same
@@ -490,8 +543,14 @@ mod tests {
         let mut set1 = HashSet::new();
         let mut set2 = HashSet::new();
         for i in 0..3 {
-            assert!(j[i]["address"].as_str().unwrap().starts_with("ztestsapling"));
-            assert_eq!(j[i]["seed"]["path"].as_str().unwrap(), format!("m/32'/1'/{}'", i).as_str());
+            assert!(j[i]["address"]
+                .as_str()
+                .unwrap()
+                .starts_with("ztestsapling"));
+            assert_eq!(
+                j[i]["seed"]["path"].as_str().unwrap(),
+                format!("m/32'/1'/{}'", i).as_str()
+            );
 
             set1.insert(j[i]["address"].as_str().unwrap());
             set1.insert(j[i]["private_key"].as_str().unwrap());
@@ -507,8 +566,8 @@ mod tests {
 
     #[test]
     fn test_z_encoding() {
+        use crate::paper::ExtendedSpendingKey;
         use crate::paper::{encode_address, encode_privatekey};
-        use zcash_primitives::zip32::ExtendedSpendingKey;
 
         let main_data = "[
             {'encoded' : '037d54cb810000008079a0d98ee64814bffe3f78e0b67363bdcdfd57b6a9a8f871615884ef79a001fdc59be1b24f5d75beed619d2eb3722a5f7f9d9c9e13f6c0218cd10bffe5ec0c0b21d65ad27ac913dfcd2d40425345d49c09e4fed60555a5f3346d76ed45906004f4c2cc6098f0780b9adaa0b1636976dcd8d6311812ef42f073d506ae19bbe4ff7501070410c512af68ed0141e146c69af666fe2efdeb804df33e3304ce07a0bb', 'address' : 'zs1ttwlzs7nnmdwmx7eag3k4szxzvsa82ttsakmux5zk0y9vcqp4jguecn5rqkjjdae2pgzcta4vkt', 'pk' : 'secret-extended-key-main1qd74fjupqqqqpqre5rvcaejgzjllu0mcuzm8xcaaeh740d4f4ru8zc2csnhhngqplhzehcdjfawht0hdvxwjavmj9f0hl8vuncfldspp3ngshll9asxqkgwkttf84jgnmlxj6szz2dzaf8qfunldvp245hengmtka4zeqcqy7npvccyc7puqhxk65zckx6tkmnvdvvgczth59urn65r2uxdmunlh2qg8qsgv2y40drkszs0pgmrf4anxlch0m6uqfhenuvcyecr6pwcvt7qwu'}, 
@@ -541,11 +600,11 @@ mod tests {
         }
     }
 
-     #[test]
+    #[test]
     fn test_entroy() {
-        use crate::paper::generate_wallet;
         use crate::paper::generate_vanity_wallet;
-        
+        use crate::paper::generate_wallet;
+
         // Testnet wallet 1
         let w1 = generate_wallet(true, false, 1, 1, &[0; 32]);
         let j1 = json::parse(&w1).unwrap();
@@ -557,32 +616,55 @@ mod tests {
         assert_eq!(j2.len(), 2);
 
         // Make sure that the two addresses are different
-        assert_ne!(j1[0]["address"].as_str().unwrap(), j2[0]["address"].as_str().unwrap());
-        assert_ne!(j1[1]["address"].as_str().unwrap(), j2[1]["address"].as_str().unwrap());
-        assert_ne!(j1[0]["private_key"].as_str().unwrap(), j2[0]["private_key"].as_str().unwrap());
-        assert_ne!(j1[1]["private_key"].as_str().unwrap(), j2[1]["private_key"].as_str().unwrap());
+        assert_ne!(
+            j1[0]["address"].as_str().unwrap(),
+            j2[0]["address"].as_str().unwrap()
+        );
+        assert_ne!(
+            j1[1]["address"].as_str().unwrap(),
+            j2[1]["address"].as_str().unwrap()
+        );
+        assert_ne!(
+            j1[0]["private_key"].as_str().unwrap(),
+            j2[0]["private_key"].as_str().unwrap()
+        );
+        assert_ne!(
+            j1[1]["private_key"].as_str().unwrap(),
+            j2[1]["private_key"].as_str().unwrap()
+        );
 
         // Test the vanity address generator returns different addresses for every run
-        let td1 = json::parse(&generate_vanity_wallet(false, 1, "te".to_string()).unwrap()).unwrap();
-        let td2 = json::parse(&generate_vanity_wallet(false, 1, "te".to_string()).unwrap()).unwrap();
+        let td1 =
+            json::parse(&generate_vanity_wallet(false, 1, "te".to_string()).unwrap()).unwrap();
+        let td2 =
+            json::parse(&generate_vanity_wallet(false, 1, "te".to_string()).unwrap()).unwrap();
         assert!(td1[0]["address"].as_str().unwrap().starts_with("zs1te"));
         assert!(td2[0]["address"].as_str().unwrap().starts_with("zs1te"));
 
-        assert_ne!(td1[0]["address"].as_str().unwrap(), td2[0]["address"].as_str().unwrap());
+        assert_ne!(
+            td1[0]["address"].as_str().unwrap(),
+            td2[0]["address"].as_str().unwrap()
+        );
     }
 
     #[test]
     fn test_tandz_wallet_generation() {
         use crate::paper::generate_wallet;
         use std::collections::HashSet;
-        
+
         // Testnet wallet
         let w = generate_wallet(true, false, 1, 1, &[]);
         let j = json::parse(&w).unwrap();
         assert_eq!(j.len(), 2);
 
-        assert!(j[0]["address"].as_str().unwrap().starts_with("ztestsapling"));
-        assert!(j[0]["private_key"].as_str().unwrap().starts_with("secret-extended-key-test"));
+        assert!(j[0]["address"]
+            .as_str()
+            .unwrap()
+            .starts_with("ztestsapling"));
+        assert!(j[0]["private_key"]
+            .as_str()
+            .unwrap()
+            .starts_with("secret-extended-key-test"));
         assert_eq!(j[0]["seed"]["path"].as_str().unwrap(), "m/32'/1'/0'");
 
         assert!(j[1]["address"].as_str().unwrap().starts_with("tm"));
@@ -595,7 +677,10 @@ mod tests {
         assert_eq!(j.len(), 2);
 
         assert!(j[0]["address"].as_str().unwrap().starts_with("zs"));
-        assert!(j[0]["private_key"].as_str().unwrap().starts_with("secret-extended-key-main"));
+        assert!(j[0]["private_key"]
+            .as_str()
+            .unwrap()
+            .starts_with("secret-extended-key-main"));
         assert_eq!(j[0]["seed"]["path"].as_str().unwrap(), "m/32'/133'/0'");
 
         assert!(j[1]["address"].as_str().unwrap().starts_with("t1"));
@@ -617,13 +702,12 @@ mod tests {
         assert_eq!(set1.len(), 12);
     }
 
-    
     /// Test nohd address generation, which does not use the same sed.
     #[test]
     fn test_nohd() {
         use crate::paper::generate_wallet;
         use std::collections::HashSet;
-        
+
         // Check if all the addresses use a different seed
         let w = generate_wallet(true, true, 3, 0, &[]);
         let j = json::parse(&w).unwrap();
@@ -632,8 +716,11 @@ mod tests {
         let mut set1 = HashSet::new();
         let mut set2 = HashSet::new();
         for i in 0..3 {
-            assert!(j[i]["address"].as_str().unwrap().starts_with("ztestsapling"));
-            assert_eq!(j[i]["seed"]["path"].as_str().unwrap(), "m/32'/1'/0'");      // All of them should use the same path
+            assert!(j[i]["address"]
+                .as_str()
+                .unwrap()
+                .starts_with("ztestsapling"));
+            assert_eq!(j[i]["seed"]["path"].as_str().unwrap(), "m/32'/1'/0'"); // All of them should use the same path
 
             set1.insert(j[i]["address"].as_str().unwrap());
             set1.insert(j[i]["private_key"].as_str().unwrap());
@@ -651,12 +738,14 @@ mod tests {
     fn test_address_derivation(testdata: &str, is_testnet: bool) {
         use crate::paper::gen_addresses_with_seed_as_json;
         let td = json::parse(&testdata.replace("'", "\"")).unwrap();
-        
+
         for i in td.members() {
             let seed = hex::decode(i["seed"].as_str().unwrap()).unwrap();
-            let num  = i["num"].as_u32().unwrap();
+            let num = i["num"].as_u32().unwrap();
 
-            let addresses = gen_addresses_with_seed_as_json(is_testnet, num+1, 0, |child| (seed.clone(), child));
+            let addresses = gen_addresses_with_seed_as_json(is_testnet, num + 1, 0, |child| {
+                (seed.clone(), child)
+            });
 
             let j = json::parse(&addresses).unwrap();
             assert_eq!(j[num as usize]["address"], i["addr"]);
@@ -681,7 +770,10 @@ mod tests {
         // Testnet
         let td = json::parse(&generate_vanity_wallet(true, 4, "ts".to_string()).unwrap()).unwrap();
         assert_eq!(td.len(), 1);
-        assert!(td[0]["address"].as_str().unwrap().starts_with("ztestsapling1ts"));
+        assert!(td[0]["address"]
+            .as_str()
+            .unwrap()
+            .starts_with("ztestsapling1ts"));
 
         // Test for invalid chars
         generate_vanity_wallet(false, 1, "b".to_string()).expect_err("b is not allowed");
@@ -696,22 +788,37 @@ mod tests {
         use rand::{ChaChaRng, SeedableRng};
 
         // 0-seeded, for predictable outcomes
-        let seed : [u8; 32] = [0; 32];
+        let seed: [u8; 32] = [0; 32];
         let mut rng = ChaChaRng::from_seed(seed);
 
         let testdata = [
-            ["tmEw65eREGVhneyqwB442UnjeVaTaJVWvi9", "cRZUuqfYFZ6bv7QxEjDMHpnxQmJG2oncZ2DAZsfVXmB2SCts8Z2N"],
-            ["tmXJQzrFTRAPpmVhrWTVUwFp7X4sisUdw2X", "cUtxiJ8n67Au9eM7WnTyRQNewfcW9bJZkKWkUkKgwqdsp2eayU57"],
-            ["tmGb1FcP31uFVtKU319thMiR2J7krABDWku", "cSuqVYsMGutnxjYNeL1DMQpiv2isMwF8gVG2oLNTnECWVGjTpB5N"],
-            ["tmHQ9fDGWqk684tjWvvEWZ8BSkpNrQ162Yb", "cNynpdfzR4jgZi5E6ihAQhzeKB2w7NXNbVvznr9oW26VoJCGHiLW"],
-            ["tmNS3LoTEFgUuEwzyYinoan4AceJ4dc21SR", "cP6FPTWbehuiXBpUnDW5iYVayEKeboxFQftx97GfSGwBs1HgPYjS"]
+            [
+                "tmEw65eREGVhneyqwB442UnjeVaTaJVWvi9",
+                "cRZUuqfYFZ6bv7QxEjDMHpnxQmJG2oncZ2DAZsfVXmB2SCts8Z2N",
+            ],
+            [
+                "tmXJQzrFTRAPpmVhrWTVUwFp7X4sisUdw2X",
+                "cUtxiJ8n67Au9eM7WnTyRQNewfcW9bJZkKWkUkKgwqdsp2eayU57",
+            ],
+            [
+                "tmGb1FcP31uFVtKU319thMiR2J7krABDWku",
+                "cSuqVYsMGutnxjYNeL1DMQpiv2isMwF8gVG2oLNTnECWVGjTpB5N",
+            ],
+            [
+                "tmHQ9fDGWqk684tjWvvEWZ8BSkpNrQ162Yb",
+                "cNynpdfzR4jgZi5E6ihAQhzeKB2w7NXNbVvznr9oW26VoJCGHiLW",
+            ],
+            [
+                "tmNS3LoTEFgUuEwzyYinoan4AceJ4dc21SR",
+                "cP6FPTWbehuiXBpUnDW5iYVayEKeboxFQftx97GfSGwBs1HgPYjS",
+            ],
         ];
 
         for i in 0..5 {
             let (a, sk) = get_taddress(true, &mut rng);
             assert_eq!(a, testdata[i][0]);
             assert_eq!(sk, testdata[i][1]);
-        }        
+        }
     }
 
     #[test]
@@ -720,15 +827,30 @@ mod tests {
         use rand::{ChaChaRng, SeedableRng};
 
         // 0-seeded, for predictable outcomes
-        let seed : [u8; 32] = [0; 32];
+        let seed: [u8; 32] = [0; 32];
         let mut rng = ChaChaRng::from_seed(seed);
 
         let testdata = [
-            ["t1P6LkovpsqCHWjeVWKkHd84ttbNksfW6k6", "L1CVSvfgpVQLkfwgrKQDvWHtnXzrNMgvUz4hTTCz2eX2BTmWSCaE"],
-            ["t1fTfg1m42VtKdFWQqjBk5b9Mv5nuPo7XLL", "L4XyFP8vf3UdzCsr8Ner45sbKSK6V9CsgHNHNKsBSiysZHaeQDq7"],
-            ["t1QkFvmtddEjzk5GbLRaxW3kGh8g2jDqSHP", "L2Yr2dsVqrCXoJ57FvC5z6KfHoRThV9ScT7ZguuxH7YWEXboHTY6"],
-            ["t1RZQLNn7T5acveY5GBvmhTWh9qJ2vy9hC9", "KxcoMig8z13RQGbxiJt33PVagwjXSvRgXTnXgRhHzuSVYZ9KdGUh"],
-            ["t1WbJ1xxps1yQ6hoXszV4j7PR1fDF7WogPz", "KxjFvYWkDeDTMkMDPogxMDzXM12EwMrZLdkV2gp9wAHBcGEcBPqZ"],
+            [
+                "t1P6LkovpsqCHWjeVWKkHd84ttbNksfW6k6",
+                "L1CVSvfgpVQLkfwgrKQDvWHtnXzrNMgvUz4hTTCz2eX2BTmWSCaE",
+            ],
+            [
+                "t1fTfg1m42VtKdFWQqjBk5b9Mv5nuPo7XLL",
+                "L4XyFP8vf3UdzCsr8Ner45sbKSK6V9CsgHNHNKsBSiysZHaeQDq7",
+            ],
+            [
+                "t1QkFvmtddEjzk5GbLRaxW3kGh8g2jDqSHP",
+                "L2Yr2dsVqrCXoJ57FvC5z6KfHoRThV9ScT7ZguuxH7YWEXboHTY6",
+            ],
+            [
+                "t1RZQLNn7T5acveY5GBvmhTWh9qJ2vy9hC9",
+                "KxcoMig8z13RQGbxiJt33PVagwjXSvRgXTnXgRhHzuSVYZ9KdGUh",
+            ],
+            [
+                "t1WbJ1xxps1yQ6hoXszV4j7PR1fDF7WogPz",
+                "KxjFvYWkDeDTMkMDPogxMDzXM12EwMrZLdkV2gp9wAHBcGEcBPqZ",
+            ],
         ];
 
         for i in 0..5 {
@@ -737,10 +859,8 @@ mod tests {
             assert_eq!(sk, testdata[i][1]);
         }
     }
-    
 
-    
-    ///    Test data was derived from zcashd. It contains 20 sets of seeds, and for each seed, it contains 5 accounts that are derived for the testnet and mainnet. 
+    ///    Test data was derived from zcashd. It contains 20 sets of seeds, and for each seed, it contains 5 accounts that are derived for the testnet and mainnet.
     ///    We'll use the same seed and derive the same set of addresses here, and then make sure that both the address and private key matches up.
     ///    To derive the test data, add something like this in test_wallet.cpp and run with
     ///    ./src/zcash-gtest --gtest_filter=WalletTests.*
@@ -749,7 +869,7 @@ mod tests {
     ///    void print_wallet(std::string seed, std::string pk, std::string addr, int num) {
     ///        std::cout << "{'seed': '" << seed << "', 'pk': '" << pk << "', 'addr': '" << addr << "', 'num': " << num << "}," << std::endl;
     ///    }
-    /// 
+    ///
     ///    void gen_addresses() {
     ///        for (int i=0; i < 20; i++) {
     ///            HDSeed seed = HDSeed::Random();
@@ -759,12 +879,12 @@ mod tests {
     ///                            .Derive(Params().BIP44CoinType() | ZIP32_HARDENED_KEY_LIMIT)
     ///                            .Derive(j | ZIP32_HARDENED_KEY_LIMIT);
     ///                auto rawSeed = seed.RawSeed();
-    ///                print_wallet(HexStr(rawSeed.begin(), rawSeed.end()), 
+    ///                print_wallet(HexStr(rawSeed.begin(), rawSeed.end()),
     ///                            EncodeSpendingKey(xsk), EncodePaymentAddress(xsk.DefaultAddress()), j);
     ///            }
     ///        }
     ///    }
-    /// 
+    ///
     ///    TEST(WalletTests, SaplingAddressTest) {
     ///        SelectParams(CBaseChainParams::TESTNET);
     ///        gen_addresses();
@@ -988,5 +1108,4 @@ mod tests {
 
         test_address_derivation(&testdata, false);
     }
-
 }

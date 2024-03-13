@@ -12,11 +12,14 @@ systemrand = []
 rand = "0.5"
 hex = "0.3"
 bech32 = "0.6"
-zcash_primitives = {  git = "https://github.com/zcash/librustzcash", rev = "5a48d179b8434a0318e7e19dda506e245a904092" }
+zcash_primitives = "0.14.0"
+zcash_keys = { version = "0.1.1", features = ["sapling"] }
+sapling-crypto = "0.1.2"
+
 json = "0.11.14"    
 qrcode = { version = "0.8", default-features = false }
 printpdf = { version = "0.2.8", optional = true }
-libsecp256k1 = "0.2.2"
+libsecp256k1 = "0.7.1"
 ripemd160 = "0.8.0"
 sha2 = "0.8.0"
 base58 = "0.1.0"
